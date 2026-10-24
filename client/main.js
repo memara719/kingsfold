@@ -11,9 +11,11 @@ import { PAL, INK, make, banner, dieFace, drawLogo, KING, KING_PAL, WORKSHOP_SPR
 import { BoardView, VX, VY, VW, VH, VPOS, EPOS, HPOS } from './board-view.js';
 import { sfx, setMusic, setSound, audioState, unlock } from './audio.js';
 import { UI, C, text, textWidth, LINE, fit, wrap } from './ui.js';
-import { ServerNet, ServerTables, LocalNet, RoomNet, RoomTables, roomAvailable } from './net.js';
+import { ServerNet, ServerTables, LocalNet, RoomNet, RoomTables, roomAvailable, PeerHostNet, PeerGuestNet, savedHosting } from './net.js';
 
-const SINGLE = !!window.KF_SINGLE;      // the one-file claude.ai page (no Node server)
+// 'server': served by server/server.js.  'web': the website, where a friend's browser hosts the table.
+// 'room': the claude.ai page, where friends meet in the artifact's shared room.
+const MODE = window.KF_MODE || 'server';
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } },
@@ -117,37 +119,53 @@ function leaveTable(msg) {
 
 async function watchTables() {
   tables = []; friendsNote = '';
-  if (!SINGLE) { tablesWatch = new ServerTables(list => { tables = list; }); return; }
+  if (MODE === 'server') { tablesWatch = new ServerTables(list => { tables = list; }); return; }
+  if (MODE === 'web') return;
   const room = await roomAvailable();
   if (screen !== 'friends') return;
-  if (!room) { friendsNote = 'Playing with friends works on the claude.ai page while signed in, or on the Kingsfold server.'; return; }
+  if (!room) { friendsNote = 'Playing with friends works on the claude.ai page while signed in, or on the Kingsfold website.'; return; }
   tablesWatch = new RoomTables(list => { tables = list; });
 }
 
 function hostTable() {
   unlock();
-  if (!SINGLE) { const n = new ServerNet({ t: 'create', name: myName }); n.name = myName; return attach(n); }
+  if (MODE === 'server') return attach(new ServerNet({ t: 'create', name: myName, house: myHouse }));
+  if (MODE === 'web') return attach(new PeerHostNet({ name: myName, house: myHouse }));
   roomAvailable().then(room => { if (room) attach(new RoomNet({ host: true, name: myName, house: myHouse })); });
 }
 function joinTable(code) {
   unlock();
   code = String(code).toUpperCase();
-  if (!SINGLE) {
-    const seat = store.get('kf_seat', null);
-    const n = new ServerNet({ t: 'join', code, name: myName, token: seat && seat.code === code ? seat.token : undefined });
-    n.name = myName;
-    return attach(n);
-  }
+  const seat = store.get('kf_seat', null);
+  const token = seat && seat.code === code ? seat.token : undefined;
+  if (MODE === 'server') return attach(new ServerNet({ t: 'join', code, name: myName, house: myHouse, token }));
+  if (MODE === 'web') return attach(new PeerGuestNet({ code, name: myName, house: myHouse, token }));
   roomAvailable().then(room => { if (room) attach(new RoomNet({ code, name: myName, house: myHouse })); });
 }
+// a friend opening an invite link: ask their name the first time, then sit them down
+function arriveAt(code) {
+  if (store.get('kf_name', '')) return joinTable(code);
+  stopAttract();
+  nameEdit = { value: '', then: () => joinTable(code) };
+  go('name');
+}
 
-// arriving through a server invite link
-const linkCode = !SINGLE && (location.pathname.match(/^\/room\/([A-Za-z]{4})$/) || [])[1];
-if (linkCode) setTimeout(() => joinTable(linkCode), 0);
-// on the claude.ai page, a reload goes back to the table this tab was at
-let backTo = null;
-try { backTo = SINGLE && sessionStorage.getItem('kf_table'); } catch { /* private mode */ }
-if (backTo) setTimeout(() => joinTable(backTo), 0);
+// arriving by link, or coming back after a reload
+setTimeout(() => {
+  if (MODE === 'server') {
+    const code = (location.pathname.match(/^\/room\/([A-Za-z]{4})$/) || [])[1];
+    if (code) arriveAt(code);
+  } else if (MODE === 'web') {
+    const saved = savedHosting();
+    const code = (location.hash.match(/^#([A-Za-z]{4})$/) || [])[1];
+    if (saved && (!code || code.toUpperCase() === saved.code)) attach(new PeerHostNet({ saved }));
+    else if (code) arriveAt(code);
+  } else {
+    let back = null;
+    try { back = sessionStorage.getItem('kf_table'); } catch { /* private mode */ }
+    if (back) joinTable(back);
+  }
+}, 0);
 
 /* ---------- game updates ---------- */
 
@@ -406,11 +424,11 @@ function saveName() {
   myName = nameEdit.value.trim().slice(0, 12);
   store.set('kf_name', myName);
   nameEdit = null;
-  go(then || 'title');
+  if (typeof then === 'function') then(); else go(then || 'title');
 }
 function drawName() {
   const ed = nameEdit;
-  drawLetterGrid(ed.then ? 'Your name, for your friends' : 'Your name', ed.value, NAME_ROWS, 12, {
+  drawLetterGrid(ed.then ? 'Your name, so friends know you' : 'Your name', ed.value, NAME_ROWS, 12, {
     type: ch => { ed.value += ch; },
     del: () => { ed.value = ed.value.slice(0, -1); },
     ok: saveName,
@@ -442,9 +460,11 @@ function drawFriends(t) {
   let cy = y + 24;
   if (friendsNote) wrap(friendsNote, w - 20).forEach((l, i) => T(l, x + 10, cy + i * LINE, C.soft));
   else {
-    if (tables.length) T('Open tables:', x + 10, cy, C.soft);
-    else wrap('No open tables yet. Host one, then ask your friends to open this page.', w - 20).forEach((l, i) => T(l, x + 10, cy + i * LINE, C.soft));
-    cy += (tables.length ? 1 : 2) * LINE + 4;
+    const intro = tables.length ? ['Open tables:'] : wrap(MODE === 'web'
+      ? 'Host a table and send your friends the invite link. Got a code from a friend? Press Enter code.'
+      : 'No open tables yet. Host one, then ask your friends to open this page.', w - 20);
+    intro.forEach((l, i) => T(l, x + 10, cy + i * LINE, C.soft));
+    cy += intro.length * LINE + 4;
     tables.slice(0, 5).forEach((tb, i) => {
       const ry = cy + i * 20;
       ui.button(x + 20, ry, w - 30, 17, '', () => joinTable(tb.code), {
@@ -459,7 +479,7 @@ function drawFriends(t) {
   }
   const by = y + h - 24;
   ui.button(x + 10, by, 50, 17, 'Back', () => go('title'), { glove: false });
-  if (!SINGLE) ui.button(x + 66, by, 74, 17, 'Enter code', () => { codeEdit = ''; go('code'); }, { glove: false });
+  if (MODE !== 'room') ui.button(x + 66, by, 74, 17, 'Enter code', () => { codeEdit = ''; go('code'); }, { glove: false });
   ui.button(x + w - 104, by, 94, 17, 'Host a table', hostTable, { kind: 'red', enabled: !friendsNote, glove: false });
 }
 
@@ -511,12 +531,30 @@ function drawLobby(t) {
     h2 => lobby.seats.some(s => s.seat !== lobby.you && s.house === h2),
     h2 => { myHouse = h2; store.set('kf_house', h2); net.setHouse(h2); });
   const by = y + h - 24;
+  const link = net && net.inviteLink ? net.inviteLink() : '';
+  if (link) {
+    const iy = land ? y + 112 : by - 44;
+    const ix = land ? x + 200 : x + 10, iw = land ? 180 : w - 20;
+    T('Invite friends', ix, iy, C.soft);
+    T(fit(link.replace(/^https?:\/\//, ''), iw), ix, iy + 12, C.white);
+    const share = navigator.share ? () => navigator.share({ title: 'Kingsfold', text: 'Join my Kingsfold table!', url: link }).catch(() => {}) : null;
+    ui.button(ix, iy + 25, share ? Math.floor(iw / 2) - 2 : iw, 16, 'Copy link', () => copyLink(link), { glove: false, key: 'copylink' });
+    if (share) ui.button(ix + Math.floor(iw / 2) + 2, iy + 25, Math.floor(iw / 2) - 2, 16, 'Share', share, { glove: false, key: 'share' });
+    if (lobbyNote && performance.now() - lobbyNote.t0 < 2500) T(lobbyNote.text, ix, iy + 45, C.green);
+  }
   ui.button(x + 10, by, 50, 17, 'Leave', () => leaveTable(), { glove: false });
   if (lobby.isHost) {
     ui.button(x + 66, by, 62, 17, '+ Bot', () => net.addBot(), { enabled: lobby.seats.length < 6, glove: false });
     ui.button(x + w - 80, by, 70, 17, 'Start', () => { unlock(); net.start(); }, { kind: 'red', enabled: lobby.seats.length >= 2, glove: false });
     if (lobby.seats.length < 2) T(land ? 'Waiting for friends to sit down...' : 'Waiting for friends...', x + 10, by - 14, C.dim);
   } else T('The host starts the game.', x + w - 12, by + 5, C.soft, { align: 'right' });
+}
+
+let lobbyNote = null;
+function copyLink(link) {
+  const done = ok => { lobbyNote = { text: ok ? 'Link copied! Paste it to your friends.' : 'Copy this: ' + link, t0: performance.now() }; };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(() => done(true), () => done(false));
+  else done(false);
 }
 
 let botsCount = 3;

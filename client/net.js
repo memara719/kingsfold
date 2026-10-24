@@ -7,6 +7,7 @@
 
 import { createGame, apply, viewFor, HOUSE_IDS, HOUSES } from '/shared/game.js';
 import { Host } from '/shared/host.js';
+import { Table, newCode } from '/shared/table.js';
 
 const BOT_NAMES = ['Sir Bramble', 'Lady Wren', 'Old Tom', 'Mistress Fen', 'Brother Ash', 'Goodwife Moll'];
 const store = {
@@ -24,47 +25,199 @@ class Base {
   constructor() { this.onLobby = noop; this.onView = noop; this.onError = noop; this.onTables = noop; this.lobby = null; }
 }
 
-/* ---------- the Node server ---------- */
+/* ---------- a table run by a server, or by a friend's browser ---------- */
 
-export class ServerNet extends Base {
-  constructor(first) {
+// Talks the table protocol (shared/table.js) over any link. connect(handlers) opens a link and
+// returns { send, close }; handlers are open(), message(m), close(), fail(reason).
+export class TableClient extends Base {
+  constructor(kind, connect, first, { name, keepTrying = 8 } = {}) {
     super();
-    this.kind = 'server';
+    this.kind = kind;
+    this.connect = connect;
+    this.name = name;
+    this.keepTrying = keepTrying;
     this.closing = false; this.tries = 0;
     this.open(first);
   }
   open(msg) {
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = this.ws = new WebSocket(`${proto}://${location.host}/ws`);
-    ws.onopen = () => { this.tries = 0; this.send(msg); };
-    ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch { return; } this.handle(m); };
-    ws.onclose = () => {
-      if (this.closing) return;
-      const seat = store.get('kf_seat', null);
-      if (!seat) return this.onError('Lost the connection to the server.', true);
-      this.tries++;
-      setTimeout(() => { if (!this.closing) this.open({ t: 'join', code: seat.code, token: seat.token, name: this.name }); }, Math.min(8000, 500 * 2 ** this.tries));
-    };
+    this.link = this.connect({
+      open: () => { this.tries = 0; this.link.send(msg); },
+      message: m => this.handle(m),
+      close: () => this.lost(),
+      fail: reason => { if (!this.closing) { this.closing = true; this.onError(reason, true); } },
+    });
   }
-  send(m) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(m)); }
+  lost() {
+    if (this.closing) return;
+    const seat = store.get('kf_seat', null);
+    if (!seat || this.tries >= this.keepTrying) { this.closing = true; return this.onError('Lost the connection to the table.', true); }
+    this.tries++;
+    setTimeout(() => {
+      if (this.closing) return;
+      try { this.link.close(); } catch { /* already closed */ }
+      this.open({ t: 'join', code: seat.code, token: seat.token, name: this.name });
+    }, Math.min(8000, 500 * 2 ** this.tries));
+  }
+  send(m) { if (this.link) this.link.send(m); }
   handle(m) {
-    if (m.t === 'token') { store.set('kf_seat', { code: m.code, token: m.token }); if (location.pathname !== '/room/' + m.code) history.replaceState(null, '', '/room/' + m.code); }
+    if (m.t === 'token') { store.set('kf_seat', { code: m.code, token: m.token }); this.onToken(m.code); }
     if (m.t === 'room') {
       const host = m.seats.find(s => s.host);
       this.lobby = { code: m.code, title: (host ? host.name : 'A') + "'s table", seats: m.seats, you: m.you, isHost: m.isHost, started: m.started };
       this.onLobby(this.lobby);
     }
     if (m.t === 'state') this.onView(m.view, m.remaining);
-    if (m.t === 'error') { if (m.fatal) store.set('kf_seat', null); this.onError(m.msg, !!m.fatal); }
+    if (m.t === 'error') { if (m.fatal) { store.set('kf_seat', null); this.closing = true; } this.onError(m.msg, !!m.fatal); }
     if (m.t === 'tables') this.onTables(m.tables);
   }
+  onToken() {}
+  inviteLink() { return ''; }
   setHouse(house) { this.send({ t: 'house', house }); }
   addBot() { this.send({ t: 'addBot' }); }
   removeSeat(seat) { this.send({ t: 'removeSeat', seat }); }
   start() { this.send({ t: 'start' }); }
   act(action) { this.send({ t: 'act', action }); }
   rematch() { this.send({ t: 'rematch' }); }
-  leave() { this.closing = true; store.set('kf_seat', null); if (this.ws) this.ws.close(); if (location.pathname !== '/') history.replaceState(null, '', '/'); }
+  leave() { this.send({ t: 'leave' }); this.closing = true; store.set('kf_seat', null); setTimeout(() => this.link && this.link.close(), 100); }
+}
+
+/* the Node server, over a WebSocket */
+
+function wsConnect(h) {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onopen = () => h.open();
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch { return; } h.message(m); };
+  ws.onclose = () => h.close();
+  return { send: m => { if (ws.readyState === 1) ws.send(JSON.stringify(m)); }, close: () => ws.close() };
+}
+export class ServerNet extends TableClient {
+  constructor(first) { super('server', wsConnect, first, { name: first.name }); }
+  onToken(code) { if (location.pathname !== '/room/' + code) history.replaceState(null, '', '/room/' + code); }
+  inviteLink() { return this.lobby ? location.origin + '/room/' + this.lobby.code : ''; }
+  leave() { super.leave(); if (location.pathname !== '/') history.replaceState(null, '', '/'); }
+}
+
+/* the website: one friend's browser runs the table, the others connect to it directly (WebRTC via PeerJS) */
+
+const PEER_PREFIX = 'kingsfold-table-';
+const peerOptions = () => Object.assign({ debug: 0 }, window.KF_PEER || {});
+const pageLink = code => location.origin + location.pathname + '#' + code;
+
+function peerConnect(code) {
+  return h => {
+    const peer = new window.Peer(peerOptions());
+    let conn = null, done = false;
+    const once = fn => (...a) => { if (!done) { done = true; fn(...a); } };
+    const lost = once(() => h.close());
+    peer.on('open', () => {
+      conn = peer.connect(PEER_PREFIX + code.toLowerCase(), { reliable: true, serialization: 'json' });
+      conn.on('open', () => h.open());
+      conn.on('data', m => { if (m && typeof m === 'object') h.message(m); });
+      conn.on('close', lost);
+      conn.on('error', lost);
+    });
+    peer.on('error', e => {
+      if (e && e.type === 'peer-unavailable') h.unavailable ? h.unavailable() : lost();
+      else lost();
+    });
+    peer.on('disconnected', () => { if (!conn || !conn.open) lost(); });
+    return { send: m => { if (conn && conn.open) conn.send(m); }, close: () => { done = true; peer.destroy(); } };
+  };
+}
+
+export class PeerGuestNet extends TableClient {
+  constructor({ code, name, house, token }) {
+    const connect = peerConnect(code);
+    let everConnected = false;
+    super('web', h => connect({
+      ...h,
+      open: () => { everConnected = true; h.open(); },
+      // nobody is hosting that code: say so at once the first time, keep trying while a host reloads
+      unavailable: () => (everConnected ? h.close() : h.fail('No table with code ' + code + ' is open right now. Check the code, or ask your friend to send the link again.')),
+    }), { t: 'join', code, name, house, token }, { name, keepTrying: 10 });
+  }
+  onToken(code) { history.replaceState(null, '', location.pathname + '#' + code); }
+  inviteLink() { return this.lobby ? pageLink(this.lobby.code) : ''; }
+  leave() { super.leave(); history.replaceState(null, '', location.pathname); }
+}
+
+// The host: runs the table in this tab, answers friends' connections, and plays through a loopback.
+export class PeerHostNet extends TableClient {
+  constructor({ name, house, saved }) {
+    let table = null, hostClient = null;
+    const deliver = (client, m) => client.deliver(m);
+    const loop = h => {
+      hostClient = { deliver: m => queueMicrotask(() => h.message(structuredClone(m))) };
+      queueMicrotask(() => h.open());
+      return {
+        send: m => {
+          if (!table) return;
+          if (m.t === 'create') table.create(hostClient, m);
+          else if (m.t === 'join') table.join(hostClient, m);
+          else table.handle(hostClient, m);
+        },
+        close: () => {},
+      };
+    };
+    super('web', loop, saved ? { t: 'join', token: saved.hostToken } : { t: 'create', name, house }, { name });
+    this.ready = this.boot(saved, deliver, t => { table = t; }).catch(e => { this.closing = true; this.onError(String(e && e.message || e), true); });
+  }
+  async boot(saved, deliver, setTable) {
+    const code = saved ? saved.code : newCode();
+    const t = saved ? Table.restore(saved, deliver) : new Table(code, deliver);
+    t.onChange = () => { try { sessionStorage.setItem('kf_hosting', JSON.stringify({ ...t.toJSON(), savedAt: Date.now() })); } catch { /* full or private */ } };
+    this.table = t;
+    setTable(t);
+    this.peer = await this.openPeer(code, !!saved);
+    this.peer.on('connection', conn => {
+      const client = { deliver: m => { if (conn.open) conn.send(m); } };
+      let joined = false;
+      conn.on('data', m => {
+        if (!m || typeof m !== 'object' || typeof m.t !== 'string') return;
+        try {
+          if (!joined) { if (m.t !== 'join') return; joined = true; t.join(client, m); }
+          else t.handle(client, m);
+        } catch (e) { console.error(e); }
+      });
+      conn.on('close', () => t.drop(client));
+      conn.on('error', () => t.drop(client));
+    });
+    this.peer.on('disconnected', () => { if (!this.closing) this.peer.reconnect(); });
+  }
+  // claim the table's address; after a reload the old one can take a little while to free up
+  openPeer(code, resuming) {
+    return new Promise((resolve, reject) => {
+      let tries = 0;
+      const attempt = () => {
+        const peer = new window.Peer(PEER_PREFIX + code.toLowerCase(), peerOptions());
+        peer.on('open', () => resolve(peer));
+        peer.on('error', e => {
+          if (e && e.type === 'unavailable-id' && resuming && tries++ < 20) { peer.destroy(); setTimeout(attempt, 3000); }
+          else if (e && e.type === 'unavailable-id') reject(new Error('That table code is already in use. Try hosting again.'));
+          else if (!peer.open) reject(new Error('Could not reach the matchmaking service. Check your internet connection.'));
+        });
+      };
+      attempt();
+    });
+  }
+  onToken() { this.onLobbyLink && this.onLobbyLink(); }
+  inviteLink() { return this.lobby ? pageLink(this.lobby.code) : ''; }
+  leave() {
+    this.closing = true;
+    try { sessionStorage.removeItem('kf_hosting'); } catch { /* private mode */ }
+    store.set('kf_seat', null);
+    if (this.table) this.table.stop();
+    if (this.peer) this.peer.destroy();
+    history.replaceState(null, '', location.pathname);
+  }
+}
+
+export function savedHosting() {
+  try {
+    const s = JSON.parse(sessionStorage.getItem('kf_hosting') || 'null');
+    return s && Date.now() - s.savedAt < 6 * 3600 * 1000 ? s : null;
+  } catch { return null; }
 }
 
 // Watches the server for open tables while the friends screen is up.

@@ -6,8 +6,11 @@ Kingsfold is a pixel-art trading and building game for 2 to 6 players, played in
 
 One friend hosts a table, the others pick it from the list of open tables, and everyone plays together online. You can also play alone against bots.
 
-There are two ways to play together:
+**Play it now:** https://memara719.github.io/kingsfold/ . Choose *Play with friends*, *Host a table*, and send your friends the invite link.
 
+There are three ways to play together:
+
+- **The website** (`site/`, built by `npm run build`). One friend's browser hosts the table and the others connect to it directly, browser to browser, through the free [PeerJS](https://peerjs.com) matchmaking service. No server to run. Every player only receives their own cards. If the host reloads, the table comes back; if the host closes their tab, the game ends. The `Website` GitHub Action rebuilds it and publishes it to the `gh-pages` branch on every push to `main`.
 - **The claude.ai page.** `npm run build` makes `dist/kingsfold.html`, a single page that runs as a claude.ai artifact. Friends who can open the artifact (shared with them as contributor or editor) see each other's tables. The host's browser runs the game and every move is replayed in the other browsers, so no server is needed. If the host closes their tab mid-game, the next player takes over.
 - **Your own server.** The Node server in `server/` holds the game for everyone. See below.
 
@@ -54,12 +57,13 @@ The game itself teaches all this: only legal moves glow, buttons show their pric
 | `shared/game.js` | All the rules. `apply(state, player, action)` checks and performs one move |
 | `shared/bot.js` | Bots, also used when a turn timer runs out |
 | `shared/host.js` | Runs one game: bots, turn timers, players who drop out |
-| `server/server.js` | Serves the files and runs rooms over WebSockets |
+| `shared/table.js` | One table: seats, lobby and game. Run by the Node server, or by the host's browser on the website |
+| `server/server.js` | Serves the files and runs tables over WebSockets |
 | `client/main.js` | The screens: title, tables, lobby and the game, all drawn on one canvas |
 | `client/ui.js`, `client/font.js` | RPG-style windows, buttons and the hand-drawn pixel font |
-| `client/net.js` | Talking to a table: the Node server, the claude.ai room, or local bots |
+| `client/net.js` | Talking to a table: the Node server, a friend's browser (website), the claude.ai room, or local bots |
 | `client/board-view.js`, `client/sprites.js`, `client/audio.js` | Pixel map, sprites and chiptune sound |
-| `tools/build-single.mjs` | Bundles everything into one HTML page for claude.ai |
+| `tools/build-single.mjs` | Bundles everything into one HTML page: the website or the claude.ai page |
 | `test/` | Rule tests (`npm test`) and browser play-throughs in `test/browser/` |
 
 The server holds the real game state. Each player only receives their own hand, so nobody can peek by inspecting the page.
@@ -74,4 +78,5 @@ This plays 300 full bot games plus checks on individual rules. The browser play-
 
 - `play-bots.mjs`: a whole game against bots through the screen (`URL=http://localhost:8080/`).
 - `play-online.mjs`: two players at one server table, with a reload mid-game.
+- `play-web.mjs`: three browsers on the website build, joining by link and by code, with a guest reload and a host reload. Run `node test/browser/peer-server.mjs` first for a local PeerJS server.
 - `play-room.mjs`: three tabs at one table on the one-file page, using `mock-room.js` in place of claude.ai's room. It checks that every screen stays in step, that a reload rejoins, and that another player takes over when the host leaves.

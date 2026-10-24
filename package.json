@@ -7,12 +7,16 @@
   "scripts": {
     "start": "node server/server.js",
     "test": "node --test test/*.test.js",
-    "build": "node tools/build-single.mjs dist/kingsfold.html"
+    "build": "node tools/build-single.mjs dist/kingsfold.html room && node tools/build-single.mjs site/index.html web"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "peerjs": "^1.5.4",
     "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "peer": "^1.0.2"
   }
 }
