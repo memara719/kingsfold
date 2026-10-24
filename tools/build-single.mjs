@@ -10,16 +10,25 @@ const order = [
 ];
 const modName = spec => path.basename(spec, '.js');
 
+const exportsOf = {}, importsOf = {};
+
 function transform(name, src) {
-  const exported = [];
-  src = src.replace(/^import\s*\{([^}]*)\}\s*from\s*'([^']+)';?\s*$/gm, (_, names, spec) =>
-    `const {${names.replace(/\s+as\s+/g, ': ')}} = __m[${JSON.stringify(modName(spec))}];`);
+  const exported = exportsOf[name] = [];
+  importsOf[name] = [];
+  if (/^export\s+(const|let)\s+[^;=]+=[^;]*,\s*[A-Za-z_$][\w$]*\s*=/m.test(src)) throw new Error(name + ': write one export per line, the bundler cannot read "export const a = 1, b = 2".');
+  src = src.replace(/^import\s*\{([^}]*)\}\s*from\s*'([^']+)';?\s*$/gm, (_, names, spec) => {
+    names.split(',').map(n => n.trim().split(/\s+as\s+/)[0]).filter(Boolean).forEach(n => importsOf[name].push([modName(spec), n]));
+    return `const {${names.replace(/\s+as\s+/g, ': ')}} = __m[${JSON.stringify(modName(spec))}];`;
+  });
   src = src.replace(/^export\s*\{([^}]*)\};?\s*$/gm, (_, names) => { names.split(',').map(n => n.trim()).filter(Boolean).forEach(n => exported.push(n)); return ''; });
   src = src.replace(/^export\s+(async\s+function|function|class|const|let)\s+([A-Za-z_$][\w$]*)/gm, (_, kw, id) => { exported.push(id); return kw + ' ' + id; });
   return `__m[${JSON.stringify(name)}] = (() => {\n${src}\nreturn { ${exported.join(', ')} };\n})();\n`;
 }
 
 const js = 'window.KF_OFFLINE = true;\n(() => {\nconst __m = {};\n' + order.map(([n, f]) => transform(n, fs.readFileSync(path.join(root, f), 'utf8'))).join('\n') + '})();\n';
+for (const [mod, list] of Object.entries(importsOf))
+  for (const [from, n] of list)
+    if (!exportsOf[from] || !exportsOf[from].includes(n)) throw new Error(`${mod} imports ${n} from ${from}, which does not export it.`);
 const html = fs.readFileSync(path.join(root, 'client/index.html'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'client/style.css'), 'utf8');
 const head = html.match(/<head>([\s\S]*)<\/head>/)[1]

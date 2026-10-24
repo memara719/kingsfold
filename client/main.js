@@ -890,7 +890,7 @@ function fitBoard() {
   const area = $('boardFrame').parentElement, cv = $('board');
   const wide = window.matchMedia('(min-width: 901px)').matches;
   const aw = area.clientWidth - 12;
-  const ah = wide ? area.clientHeight - 12 : window.innerHeight * 0.62;
+  const ah = wide ? area.clientHeight - 12 : window.innerHeight - 90;
   let s = Math.min(aw / VW, ah / VH);
   if (s >= 2) s = Math.floor(s * 4) / 4;
   s = Math.max(1, s);

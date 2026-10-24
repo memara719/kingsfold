@@ -7,7 +7,10 @@ import { S, spr, INK, PAL } from './sprites.js';
 export const W = 288;
 export const H = 184;
 // The part of the world shown on screen: the island plus a band of sea. Open sea is cropped away.
-export const VX = 50, VY = 10, VW = 188, VH = 168;
+export const VX = 50;
+export const VY = 10;
+export const VW = 188;
+export const VH = 168;
 const R = 18, S3 = Math.sqrt(3), OX = 144, OY = 92;
 
 const TERRAIN = {
