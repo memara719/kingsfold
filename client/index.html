@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kingsfold</title>
+<meta name="description" content="Build a village. Grow a kingdom. First to 8 crowns wins. A pixel-art trading game for 2 to 6 friends.">
+<meta name="theme-color" content="#2b5bb6">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 5' shape-rendering='crispEdges'%3E%3Cpath fill='%23f6c02c' d='M0 0h1v1h1v-1h1v1h1v-1h1v1h1v-1h1v5h-7z'/%3E%3Cpath fill='%23d8342c' d='M1 3h1v1h-1zM5 3h1v1h-1z'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Jersey+10&display=swap">
+<link rel="stylesheet" href="/client/style.css">
+</head>
+<body>
+
+<!-- TITLE -->
+<main id="title" class="screen">
+  <div class="title-wrap">
+    <h1 class="sr">Kingsfold</h1>
+    <canvas id="logo" class="logo" aria-hidden="true"></canvas>
+    <p class="tagline">Build a village. Grow a kingdom. First to 8 crowns wins.</p>
+    <div class="card start-card">
+      <label class="field">
+        <span>YOUR NAME</span>
+        <input id="nameInput" maxlength="16" autocomplete="nickname" placeholder="Sir Something">
+      </label>
+      <div class="start-buttons">
+        <button class="btn big red" id="createBtn" type="button">MAKE A ROOM</button>
+        <div class="join-row">
+          <input id="codeInput" maxlength="4" placeholder="CODE" autocapitalize="characters" aria-label="Room code">
+          <button class="btn big" id="joinBtn" type="button">JOIN</button>
+        </div>
+        <button class="btn big green" id="botsBtn" type="button">PLAY VS BOTS</button>
+      </div>
+      <p class="error" id="titleError" role="alert" hidden></p>
+    </div>
+    <ol class="howto">
+      <li><canvas data-sprite="die"></canvas><b>ROLL</b><span>Lands with that number pay their neighbors.</span></li>
+      <li><canvas data-sprite="trade"></canvas><b>TRADE</b><span>With friends, or 4 for 1 with the bank.</span></li>
+      <li><canvas data-sprite="hammer"></canvas><b>BUILD</b><span>Tap a glowing spot. 8 crowns wins.</span></li>
+    </ol>
+  </div>
+</main>
+
+<!-- LOBBY -->
+<main id="lobby" class="screen" hidden>
+  <div class="lobby-wrap">
+    <canvas class="logo small" data-logo aria-hidden="true"></canvas>
+    <div class="card">
+      <h2 class="tab">THE GREAT HALL</h2>
+      <div class="code-box" id="codeBox">
+        <span class="soft">ROOM CODE</span>
+        <b id="roomCode">----</b>
+        <div class="share">
+          <input id="shareLink" readonly aria-label="Invite link">
+          <button class="btn" id="copyBtn" type="button">COPY LINK</button>
+        </div>
+      </div>
+      <h3>PLAYERS</h3>
+      <ul class="seats" id="seats"></ul>
+      <h3>PICK YOUR HOUSE</h3>
+      <div class="house-pick" id="housePick"></div>
+      <div class="lobby-actions">
+        <button class="btn" id="addBotBtn" type="button">+ ADD BOT</button>
+        <button class="btn big red" id="startBtn" type="button">START GAME</button>
+        <p class="soft" id="waitHost" hidden>Waiting for the host to start the game.</p>
+      </div>
+      <button class="link" id="leaveLobby" type="button">Leave room</button>
+    </div>
+  </div>
+</main>
+
+<!-- GAME -->
+<main id="game" class="screen" hidden>
+  <header class="topbar">
+    <div class="turn" id="turnBox"><span class="turn-dot" id="turnDot"></span><b id="turnText"></b><span id="turnHint" class="soft"></span></div>
+    <div class="news" id="newsBox" title="News from the King"><canvas data-sprite="scroll"></canvas><div><b id="newsName"></b><span id="newsText"></span></div></div>
+    <div class="timer" id="timerBox" hidden><canvas data-sprite="hourglass"></canvas><b id="timerText">90</b></div>
+    <div class="top-btns">
+      <button class="icon-btn" id="musicBtn" type="button" aria-label="Music"></button>
+      <button class="icon-btn" id="soundBtn" type="button" aria-label="Sound effects"></button>
+      <button class="icon-btn txt" id="menuBtn" type="button" aria-label="Menu">MENU</button>
+    </div>
+  </header>
+
+  <div class="table">
+    <section class="board-area">
+      <div class="board-frame" id="boardFrame">
+        <canvas id="board" aria-label="The game board"></canvas>
+        <div class="toasts" id="toasts" aria-live="polite"></div>
+        <div class="mode-bar" id="modeBar" hidden><span id="modeText"></span><button class="btn small" id="modeCancel" type="button">CANCEL</button></div>
+        <div class="offer-bar" id="offerBar" hidden></div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="panel">
+        <h3>PLAYERS</h3>
+        <ul class="players" id="players"></ul>
+      </section>
+      <section class="panel">
+        <h3>QUEST BOARD</h3>
+        <div class="quests" id="quests"></div>
+      </section>
+      <section class="panel feed">
+        <h3>CHRONICLE</h3>
+        <ol class="log" id="log"></ol>
+        <form class="chat" id="chatForm" hidden>
+          <input id="chatInput" maxlength="140" placeholder="Say something..." aria-label="Chat message">
+          <button class="btn small" type="submit">SAY</button>
+        </form>
+        <div class="emotes" id="emotes" hidden></div>
+      </section>
+    </aside>
+
+    <section class="dock">
+      <div class="dice-box">
+        <div class="dice"><canvas id="die1"></canvas><canvas id="die2"></canvas></div>
+        <button class="btn big red" id="rollBtn" type="button">ROLL</button>
+      </div>
+      <div class="hand-box">
+        <div class="pick-note" id="pickNote" hidden>FREE CARD! TAP ONE TO TAKE IT</div>
+        <div class="hand" id="hand"></div>
+        <div class="kcards" id="kcards"></div>
+      </div>
+      <div class="actions" id="actions"></div>
+    </section>
+  </div>
+</main>
+
+<!-- OVERLAYS -->
+<div class="tip" id="tip" hidden>
+  <canvas id="tipKing" aria-hidden="true"></canvas>
+  <div class="bubble"><b>KING ALDRIC</b><p id="tipText"></p><button class="btn small" id="tipOk" type="button">GOT IT</button></div>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="card modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 class="tab" id="modalTitle"></h2>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<div class="sr" id="live" aria-live="polite"></div>
+
+<script type="module" src="/client/main.js"></script>
+</body>
+</html>

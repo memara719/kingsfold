@@ -1,0 +1,17 @@
+{
+  "name": "kingsfold",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A pixel-art medieval trading and building game for 2 to 6 friends online.",
+  "type": "module",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.21.3"
+  }
+}

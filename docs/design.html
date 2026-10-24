@@ -1,0 +1,740 @@
+<title>Kingsfold</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Jersey+10&display=swap">
+<style>
+/* Layout: a fold-out quick-start card from a 1993 game box. Paper panels with thick ink borders on a flat blue table. */
+:root{
+  color-scheme: light;
+  --table:#2b5bb6; --table-dot:#2752a6;
+  --paper:#fbfaf3; --ink:#16121c; --ink-soft:#57506a;
+  --red:#d8342c; --gold:#f6c02c; --green:#3a9a40; --blue:#2e62c8;
+  --f-head:"Jersey 10","Arial Black",Impact,sans-serif;
+  --f-body:"DotGothic16","MS Gothic","Courier New",monospace;
+}
+*{box-sizing:border-box}
+body{background-color:var(--table);background-image:repeating-conic-gradient(var(--table-dot) 0 25%,transparent 0 50%);background-size:4px 4px;
+  color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.6}
+.page{max-width:860px;margin:0 auto;display:grid;gap:48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges}
+
+/* hero */
+.hero{display:grid;gap:14px;justify-items:center;text-align:center}
+#logo{width:min(100%,620px);height:auto;display:block}
+.tagline{margin:0;color:#fff;font-size:19px;text-shadow:2px 2px 0 var(--ink)}
+.facts{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.facts li{background:var(--gold);border:3px solid var(--ink);padding:0 10px;font-family:var(--f-head);font-size:22px;line-height:1.3;box-shadow:3px 3px 0 var(--ink)}
+.screen{width:100%;background:var(--ink);border:3px solid var(--ink);box-shadow:6px 6px 0 rgba(0,0,0,.45);padding:8px}
+#realm{width:100%;aspect-ratio:320/176;display:block}
+
+/* paper cards */
+.card{position:relative;background:var(--paper);border:3px solid var(--ink);box-shadow:6px 6px 0 var(--ink);padding:34px 24px 24px;display:grid;gap:16px;min-width:0}
+.tab{position:absolute;top:-22px;left:16px;margin:0;background:var(--red);color:#fff;border:3px solid var(--ink);padding:0 12px;
+  font-family:var(--f-head);font-weight:400;font-size:30px;line-height:1.25;letter-spacing:.02em;text-shadow:2px 2px 0 var(--ink)}
+.tab.g{background:var(--green)}.tab.b{background:var(--blue)}.tab.y{background:var(--gold);color:var(--ink);text-shadow:none}
+h3{margin:0;font-family:var(--f-head);font-weight:400;font-size:26px;line-height:1.1}
+p{margin:0;max-width:64ch}
+.soft{color:var(--ink-soft)}
+
+/* king */
+.king{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:center}
+.king canvas{width:88px}
+.bubble{position:relative;background:var(--paper);border:3px solid var(--ink);box-shadow:6px 6px 0 var(--ink);padding:16px 20px}
+.bubble::before{content:"";position:absolute;left:-15px;top:26px;width:0;height:0;border:12px solid transparent;border-right:14px solid var(--ink);border-left:0}
+.bubble::after{content:"";position:absolute;left:-9px;top:30px;width:0;height:0;border:8px solid transparent;border-right:10px solid var(--paper);border-left:0}
+.bubble b{font-family:var(--f-head);font-weight:400;font-size:24px;color:var(--red);display:block;line-height:1}
+
+/* turn steps */
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.steps li{display:grid;gap:8px;justify-items:center;text-align:center;align-content:start;position:relative}
+.steps canvas{width:64px}
+.steps h3{color:var(--red)}
+.steps li:not(:last-child)::after{content:"";position:absolute;right:-16px;top:22px;border:9px solid transparent;border-left:12px solid var(--ink);border-right:0}
+.big{font-family:var(--f-head);font-size:26px;line-height:1.2;text-align:center;margin:0 auto}
+
+/* costs */
+.cost{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.cost span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.cost canvas{width:22px}
+
+/* builds */
+.builds{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.piece{border:3px solid var(--ink);padding:14px;display:grid;gap:8px;align-content:start;background:#fff}
+.piece .art{height:56px;display:flex;align-items:flex-end}
+.piece .art canvas{height:100%;width:auto}
+.crowns{display:flex;align-items:center;gap:6px;font-family:var(--f-head);font-size:22px;line-height:1}
+.crowns canvas{width:22px}
+
+/* list with crown bullets */
+.score{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-width:520px}
+.score li{display:grid;grid-template-columns:1fr auto;gap:10px;border-bottom:2px dotted #c8c2b4;padding-bottom:6px}
+.score li b{font-family:var(--f-head);font-weight:400;font-size:24px;line-height:1;white-space:nowrap}
+
+.ws{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+.ws .piece canvas.icon{width:44px}
+
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:22px}
+.split > *{min-width:0}
+
+/* houses */
+.houses{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:520px){.houses{grid-template-columns:repeat(2,1fr)}}
+.house{border:3px solid var(--ink);background:#fff;padding:12px 10px;display:grid;gap:6px;justify-items:center;text-align:center;cursor:pointer;position:relative;font:inherit;color:inherit}
+.house canvas{width:48px}
+.house h3{font-size:22px}
+.house p{font-size:15px;line-height:1.4}
+.house:hover{background:#fff7d8}
+.house[aria-pressed="true"]{background:var(--gold)}
+.house[aria-pressed="true"]::after{content:"YOU";position:absolute;top:-13px;right:-8px;background:var(--red);color:#fff;border:3px solid var(--ink);font-family:var(--f-head);font-size:18px;line-height:1;padding:2px 6px}
+.house:focus-visible,.btn:focus-visible{outline:3px dashed var(--red);outline-offset:3px}
+
+/* news */
+.news{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;border:3px solid var(--ink);background:#fff;padding:14px 18px}
+.news h3{color:var(--red)}
+.btn{font-family:var(--f-head);font-size:22px;line-height:1;color:var(--ink);background:var(--gold);border:3px solid var(--ink);padding:10px 14px;cursor:pointer;box-shadow:3px 3px 0 var(--ink)}
+.btn:active{transform:translate(3px,3px);box-shadow:none}
+
+/* quest board */
+.board{background:#8a5a30;border:3px solid var(--ink);padding:22px 16px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:18px;
+  background-image:repeating-linear-gradient(0deg,transparent 0 10px,#7a4e28 10px 12px)}
+.note{background:var(--paper);border:2px solid var(--ink);padding:14px 12px 10px;box-shadow:3px 3px 0 rgba(0,0,0,.4);transform:rotate(var(--rot,0deg));position:relative;display:grid;gap:4px;font-size:15px;line-height:1.45}
+.note::before{content:"";position:absolute;top:-6px;left:50%;margin-left:-5px;width:10px;height:10px;background:var(--red);border:2px solid var(--ink)}
+.note h3{font-size:21px}
+.note .crowns{font-size:19px;margin-top:4px}
+.note .crowns canvas{width:18px}
+
+/* checklist */
+.checks{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.checks li{display:grid;grid-template-columns:28px 1fr;gap:12px;align-items:start}
+.checks canvas{width:24px;margin-top:3px}
+
+.changes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+.changes ul{margin:0;padding-left:20px;display:grid;gap:4px}
+.cut li{text-decoration:line-through;text-decoration-color:var(--red);text-decoration-thickness:2px;color:var(--ink-soft)}
+
+.foot{text-align:center;color:#fff;font-size:14px;text-shadow:1px 1px 0 var(--ink);margin:0 auto}
+
+@media (max-width:600px){
+  body{font-size:16px}
+  .card{padding:32px 16px 18px}
+  .steps{grid-template-columns:1fr;gap:22px}
+  .steps li:not(:last-child)::after{right:auto;left:50%;top:auto;bottom:-20px;margin-left:-9px;border:9px solid transparent;border-top:12px solid var(--ink);border-bottom:0}
+  .king{grid-template-columns:1fr}
+  .king canvas{width:64px}
+  .bubble::before,.bubble::after{display:none}
+  .news{grid-template-columns:1fr}
+}
+</style>
+
+<main class="page">
+
+  <header class="hero">
+    <h1 class="sr">Kingsfold</h1>
+    <canvas id="logo" width="10" height="10" aria-hidden="true"></canvas>
+    <p class="tagline">Build a village. Grow a kingdom. First to 8 crowns wins.</p>
+    <ul class="facts"><li>3&ndash;6 PLAYERS</li><li>30&ndash;40 MIN</li><li>ONLINE</li></ul>
+    <div class="screen"><canvas id="realm" width="320" height="176" aria-label="Pixel-art map of Kingsfold: forests, fields, pastures, hills and mountains around a castle with a fountain, a river to the sea, villages with smoking chimneys, a windmill, boats and a lighthouse."></canvas></div>
+  </header>
+
+  <section class="king">
+    <canvas id="kingPic" aria-hidden="true"></canvas>
+    <div class="bubble">
+      <b>KING ALDRIC SAYS:</b>
+      <p>Welcome to Kingsfold! Every village you build makes my kingdom grow, and every one earns you a crown. Get 8 crowns and I'll name you heir to the throne.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="tab">YOUR TURN</h2>
+    <ol class="steps">
+      <li><canvas data-sprite="die"></canvas><h3>1. ROLL</h3><p>Every land showing that number pays its neighbors. Everyone collects, even on your turn.</p></li>
+      <li><canvas data-sprite="trade"></canvas><h3>2. TRADE</h3><p>Swap cards with friends, or give the bank 4 of one kind for 1 of anything.</p></li>
+      <li><canvas data-sprite="hammer"></canvas><h3>3. BUILD</h3><p>Spend cards. The spots you can build on glow. Tap one.</p></li>
+    </ol>
+    <p class="big">That's the whole game.</p>
+  </section>
+
+  <section class="card">
+    <h2 class="tab g">WHAT YOU CAN BUILD</h2>
+    <div class="builds" id="builds"></div>
+  </section>
+
+  <section class="card">
+    <h2 class="tab y">WORKSHOPS</h2>
+    <p>Add one to any village or town. Each costs 2 cards and makes that place better.</p>
+    <div class="ws" id="workshops"></div>
+  </section>
+
+  <section class="card">
+    <h2 class="tab">HOW TO WIN</h2>
+    <div class="split">
+      <ul class="score" id="score"></ul>
+      <div style="display:grid;gap:12px;align-content:start">
+        <h3>THE BANDITS</h3>
+        <p>They hide in the slum behind the castle. Roll a 7 and they come out. Put them on any land: it stops paying, and you steal 1 card from a player living there.</p>
+        <p>Anyone holding more than 7 cards loses half of them. Play a Knight to chase the bandits somewhere else.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="tab b">PICK A HOUSE</h2>
+    <p>Each player picks a noble house before the game. One small power each, easy to remember.</p>
+    <div class="houses" id="houses"></div>
+  </section>
+
+  <section class="card">
+    <h2 class="tab y">NEWS FROM THE KING</h2>
+    <p>Each new round, the King announces one bit of news. It lasts one round and keeps every game a little different.</p>
+    <div class="news" aria-live="polite">
+      <div><h3 id="nTitle">HARVEST FESTIVAL</h3><p id="nText">Fields pay double this round.</p></div>
+      <button class="btn" id="nBtn" type="button">NEXT NEWS</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="tab g">THE QUEST BOARD</h2>
+    <p>Three quests are always pinned up. Finish one first and it's worth a crown. Then a new quest goes up.</p>
+    <div class="board" id="quests"></div>
+  </section>
+
+  <section class="card">
+    <h2 class="tab b">NO RULEBOOK NEEDED</h2>
+    <p>New players should be able to learn by playing. The screen teaches them:</p>
+    <ul class="checks" id="checks">
+      <li><canvas></canvas><span>Only moves you can make light up. Tap a glowing spot to build there.</span></li>
+      <li><canvas></canvas><span>Every button shows its price. If you can't afford something, it's grayed out and shows what you're missing.</span></li>
+      <li><canvas></canvas><span>Tap any land to see what it pays and who collects.</span></li>
+      <li><canvas></canvas><span>In your first game, the King pops up with a short tip right when you need it.</span></li>
+      <li><canvas></canvas><span>Changed your mind? Undo a build any time before you end your turn.</span></li>
+      <li><canvas></canvas><span>Turns have a 90-second sand timer, so nobody waits long.</span></li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2 class="tab">PLAYING ONLINE</h2>
+    <p>Open it in your browser, on a computer or a phone. One friend makes a room and shares a 4-letter code, and everyone else types it in. If your connection drops, you rejoin right where you left off. The music is old-school chiptune.</p>
+  </section>
+
+  <section class="card">
+    <h2 class="tab y">SINCE DRAFT 1</h2>
+    <div class="changes">
+      <div><h3>KEPT</h3><ul><li>Castle, King and fountain</li><li>River, slum and bandits</li><li>Bakery, Hunter's Lodge, Blacksmith, Fishing Hut</li><li>Houses, quests, King's news</li><li>Pixel art, online play</li></ul></div>
+      <div><h3>CUT</h3><ul class="cut"><li>Shanties and hungry towns</li><li>The General and Royal Favor</li><li>5 of the 9 workshops</li><li>Secret ambitions</li><li>Fish cards and bridges</li><li>12 points to win (now 8)</li></ul></div>
+    </div>
+  </section>
+
+  <p class="foot">Kingsfold &middot; design draft 2 &middot; an original game inspired by the classic island-trading board game</p>
+</main>
+
+<script>
+(function(){
+"use strict";
+var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function spr(c, rows, pal, x, y, ol){
+  var h = rows.length, w = 0, i, j;
+  for (j = 0; j < h; j++) w = Math.max(w, rows[j].length);
+  function op(i, j){ return j >= 0 && j < h && i >= 0 && i < rows[j].length && rows[j][i] !== " "; }
+  if (ol){
+    c.fillStyle = ol;
+    for (j = -1; j <= h; j++) for (i = -1; i <= w; i++)
+      if (!op(i, j) && (op(i-1, j) || op(i+1, j) || op(i, j-1) || op(i, j+1))) c.fillRect(x+i, y+j, 1, 1);
+  }
+  for (j = 0; j < h; j++) for (i = 0; i < rows[j].length; i++){
+    var ch = rows[j][i];
+    if (ch !== " "){ c.fillStyle = pal[ch]; c.fillRect(x+i, y+j, 1, 1); }
+  }
+}
+var PI = {k:"#16121c",W:"#ffffff",w:"#c8c4d0",y:"#f6c02c",Y:"#b8861c",c:"#f4dca8",b:"#a0703c",B:"#5a3418",
+  g:"#d4d8e0",G:"#6c7480",r:"#d8342c",R:"#8a1c1c",u:"#78c0f8",U:"#2860b8",e:"#6cc040",E:"#2c7a2c",o:"#e88a3a",O:"#a8501c",s:"#f0c8a0",p:"#b070e0"};
+function paint(cv, rows, pal, ol){
+  var w = 0; rows.forEach(function(r){ w = Math.max(w, r.length); });
+  var pad = ol ? 1 : 0;
+  cv.width = w + pad*2; cv.height = rows.length + pad*2;
+  spr(cv.getContext("2d"), rows, pal || PI, pad, pad, ol);
+  cv.setAttribute("aria-hidden", "true");
+  return cv;
+}
+function make(rows, pal, ol){ return paint(document.createElement("canvas"), rows, pal, ol); }
+
+/* --- sprites --- */
+var S = {
+  die:   ["WWWWWWWWW","WkkWWWkkW","WkkWWWkkW","WWWWWWWWW","WWWWkWWWW","WWWWWWWWW","WkkWWWkkW","WkkWWWkkW","WWWWWWWWW"],
+  trade: ["      y   ","      yy  ","yyyyyyyyy ","      yy  ","      y   ","   u      ","  uu      "," uuuuuuuuu","  uu      ","   u      "],
+  hammer:["kgggggk  ","kgGGGGgk ","kgGGGGk  ","kkkbkkk  ","   b     ","   b     ","   b     ","   B     ","   B     "],
+  wood:  ["  bbbbbbbb","bcYcbbbbbbB","cYcYcbbbBBB","bcYcbbbBBB "," bbbbbBBB  "],
+  brick: ["rrrRkrrrrR","RRRRkRRRRR","kkkkkkkkkk","rrkrrrrRkr","RRkRRRRRkR"],
+  wool:  [" WWW   ","WWWWWkk","WWWWWkW","WWWWWk ","w  w   "],
+  grain: ["y y y"," yyy ","y y y"," yyy ","  E  ","  E  "],
+  iron:  ["  gg  "," gGgg ","gGGgGG","GgGGGG"," GGGG "],
+  crown: ["y  y  y","yy y yy","yyyyyyy","yryyyry","yyyyyyy"],
+  check: ["       ee","      eeE","e    eeE ","Ee  eeE  "," EeeeE   ","  EEE    "],
+  road:  ["      rrr","    rrrR ","  rrrR   ","rrrR     ","rR       "],
+  village:["   r   ","  rrR  "," rrrRR ","rrrrRRR"," WWWWw "," WkWWw "," WkWWw "],
+  town:  ["   r       ","  rrR      "," rrrRR r   ","rrrrRRrrR  "," WWWWrrrRR "," WkWrrrrRRR"," WkWWWWWWw ","    WkWWWw ","    WkWWWw "],
+  card:  ["kkkkkkk","kWWWWWk","kWyWyWk","kWyyyWk","kWWWWWk","kWWWWWk","kWrWrWk","kWWWWWk","kkkkkkk"],
+  bread: ["  kkkkkk  "," kyoooook ","kyocoocook","kooooooook","kOOOOOOOOk"," kkkkkkkk "],
+  antler:["k  k  k  k","kcck  kcck"," kcckkcck ","  kbbbbk  ","  kbkkbk  ","  kBBBBk  ","  kkkkkk  "],
+  anvil: [" o   y  o ","kkkkkkkkk ","kgggggggkk","kGGGGGGGGk"," kkGGGGkk ","  kGGGGk  "," kGGGGGGk "," kkkkkkkk "],
+  fish:  ["  kkkk    "," kuuuuk kk","kuWkuuukuk","kuuuuuuuk ","kUUUUUUkUk"," kUUUUk kk","  kkkk    "]
+};
+var RN = {wood:"Wood", brick:"Brick", wool:"Wool", grain:"Grain", iron:"Iron"};
+document.querySelectorAll("canvas[data-sprite]").forEach(function(c){ paint(c, S[c.dataset.sprite], PI, "#16121c"); });
+
+function cost(list){
+  var d = document.createElement("div"); d.className = "cost";
+  list.forEach(function(r){
+    var n = 1, k = r; if (r.indexOf("*") > 0){ n = +r.split("*")[0]; k = r.split("*")[1]; }
+    var s = document.createElement("span");
+    s.appendChild(make(S[k], PI, "#16121c"));
+    s.appendChild(document.createTextNode((n > 1 ? n + " " : "") + RN[k]));
+    d.appendChild(s);
+  });
+  return d;
+}
+function crowns(n, label){
+  var d = document.createElement("div"); d.className = "crowns";
+  d.appendChild(make(S.crown, PI, "#16121c"));
+  d.appendChild(document.createTextNode(label || ("+" + n + " CROWN" + (n > 1 ? "S" : ""))));
+  return d;
+}
+function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
+
+/* builds */
+[["ROAD", "road", ["wood","brick"], 0, "Connects your places. You can only build next to your own roads."],
+ ["VILLAGE", "village", ["wood","brick","wool","grain"], 1, "Collects from the lands touching it."],
+ ["TOWN", "town", ["2*grain","3*iron"], 2, "Upgrade a village. Collects double."],
+ ["KING'S CARD", "card", ["wool","grain","iron"], 0, "A surprise: a Knight, 2 free roads, 2 free cards, or a secret crown."]
+].forEach(function(p){
+  var d = el("div", "piece");
+  var a = el("div", "art"); a.appendChild(make(S[p[1]], PI, "#16121c")); d.appendChild(a);
+  d.appendChild(el("h3", "", p[0]));
+  d.appendChild(cost(p[2]));
+  if (p[3]) d.appendChild(crowns(p[3]));
+  d.appendChild(el("p", "soft", p[4]));
+  document.getElementById("builds").appendChild(d);
+});
+
+/* workshops */
+[["BAKERY", "bread", ["grain","brick"], "Fields next to it pay 1 extra Grain."],
+ ["HUNTER'S LODGE", "antler", ["wood","wool"], "Forests next to it pay 1 extra Wood."],
+ ["BLACKSMITH", "anvil", ["iron","brick"], "Mountains next to it pay 1 extra Iron."],
+ ["FISHING HUT", "fish", ["wood","grain"], "On the river or coast. When a roll pays you nothing, take any 1 card."]
+].forEach(function(w){
+  var d = el("div", "piece");
+  var ic = make(S[w[1]]); ic.className = "icon"; d.appendChild(ic);
+  d.appendChild(el("h3", "", w[0]));
+  d.appendChild(cost(w[2]));
+  d.appendChild(el("p", "", w[3]));
+  document.getElementById("workshops").appendChild(d);
+});
+
+/* score */
+[["Each village", "1"], ["Each town", "2"], ["Each quest you finish", "1"], ["Longest road (5 or more)", "2"], ["Most knights (3 or more)", "2"], ["Secret crown card", "1"]].forEach(function(s){
+  var li = el("li"); li.appendChild(el("span", "", s[0]));
+  var b = el("b"); b.appendChild(make(S.crown, PI, "#16121c")); b.lastChild.style.width = "20px"; b.lastChild.style.marginRight = "6px"; b.appendChild(document.createTextNode(s[1]));
+  li.appendChild(b); document.getElementById("score").appendChild(li);
+});
+
+/* houses */
+var EMB = {
+  sword:["  y  ","  y  ","  y  ","yyyyy","  y  "], coin:[" yyy ","y   y","y y y","y   y"," yyy "],
+  wheat:["y y y"," yyy ","y y y"," yyy ","  y  "], tree:["  y  "," yyy ","yyyyy","  y  ","  y  "],
+  wave:[" yy  ","y  yy","     "," yy  ","y  yy"], anvil:["yyyyy"," yyy ","  y  "," yyy ","yyyyy"]
+};
+function banner(col, shade, emb){
+  var rows = [], x, y;
+  for (y = 0; y < 19; y++){
+    var s = "";
+    for (x = 0; x < 14; x++){
+      var ch = " ";
+      if (y === 1 && x >= 1 && x <= 12) ch = "b";
+      if (y <= 1 && (x === 0 || x === 13)) ch = "y";
+      if (y >= 2 && y <= 16 && x >= 2 && x <= 11) ch = x === 11 ? "S" : "C";
+      if (y === 3 && x >= 3 && x <= 10) ch = "y";
+      if (y === 17 && ((x >= 2 && x <= 5) || (x >= 8 && x <= 11))) ch = (x === 11 || x === 5) ? "S" : "C";
+      if (y === 18 && ((x >= 2 && x <= 3) || (x >= 10 && x <= 11))) ch = "C";
+      if (y >= 7 && y <= 11 && x >= 4 && x <= 8 && EMB[emb][y-7][x-4] === "y") ch = "y";
+      s += ch;
+    }
+    rows.push(s);
+  }
+  return make(rows, {b:"#8a5a2c", y:"#f6c02c", C:col, S:shade}, "#16121c");
+}
+var hw = document.getElementById("houses");
+[["LIONS", "#d8342c", "#8a1c1c", "sword", "Knights. Start with a free Knight card."],
+ ["SCALES", "#d8a020", "#8a6010", "coin", "Merchants. Trade with the bank 3 for 1."],
+ ["SHEAVES", "#e8782c", "#9a4414", "wheat", "Bakers. Your first Bakery is free."],
+ ["STAGS", "#3a9a40", "#1c5a24", "tree", "Hunters. Your first Hunter's Lodge is free."],
+ ["WAVES", "#2e62c8", "#1c3c98", "wave", "Fishers. Your first Fishing Hut is free."],
+ ["ANVILS", "#7c8494", "#4a505c", "anvil", "Smiths. Your first Blacksmith is free."]
+].forEach(function(h){
+  var b = el("button", "house"); b.type = "button"; b.setAttribute("aria-pressed", "false");
+  b.appendChild(banner(h[1], h[2], h[3]));
+  b.appendChild(el("h3", "", h[0]));
+  b.appendChild(el("p", "", h[4]));
+  b.addEventListener("click", function(){
+    hw.querySelectorAll(".house").forEach(function(o){ o.setAttribute("aria-pressed", "false"); });
+    b.setAttribute("aria-pressed", "true");
+  });
+  hw.appendChild(b);
+});
+
+/* news */
+var NEWS = [["HARVEST FESTIVAL", "Fields pay double this round."], ["MARKET DAY", "Everyone trades with the bank 3 for 1 this round."],
+  ["TAX DAY", "Anyone holding 8 or more cards gives 1 to the King."], ["ROYAL GIFT", "Everyone takes 1 card of their choice."],
+  ["A DRAGON!", "Mountains pay nothing this round."], ["BUILDERS' WEEK", "Roads cost only 1 Wood this round."]];
+var ni = 0;
+document.getElementById("nBtn").addEventListener("click", function(){
+  ni = (ni + 1) % NEWS.length;
+  document.getElementById("nTitle").textContent = NEWS[ni][0];
+  document.getElementById("nText").textContent = NEWS[ni][1];
+});
+
+/* quests */
+[["FEED THE KING", "Pay 3 Grain to the castle.", "-1.5deg"], ["ROYAL ROAD", "Build a road that touches the castle.", "1.2deg"],
+ ["MASTER BUILDER", "Own 2 workshops.", "-0.5deg"]].forEach(function(q){
+  var n = el("div", "note"); n.style.setProperty("--rot", q[2]);
+  n.appendChild(el("h3", "", q[0])); n.appendChild(el("p", "", q[1])); n.appendChild(crowns(1));
+  document.getElementById("quests").appendChild(n);
+});
+
+/* checks */
+document.querySelectorAll("#checks canvas").forEach(function(c){ paint(c, S.check, PI, "#16121c"); });
+
+/* king portrait */
+paint(document.getElementById("kingPic"), ["  y  yy  y  ","  yyyyyyyy  ","  yryyyyry  ","  ssssssss  ","  sksssks   ","  ssssssss  "," WsWWWWWsW  "," WWWWWWWWWW ","  WWWWWWWW  "," ppWWWWWWpp ","ppppWWWWpppp","ppyppWWppypp","pppppppppppp"],
+  {y:"#f6c02c", r:"#d8342c", s:"#f0c8a0", k:"#16121c", W:"#f4f4fa", p:"#7030b0"}, "#16121c");
+
+/* pixel logo: render the word small, then outline and shade it pixel by pixel */
+function drawLogo(){
+  var word = "KINGSFOLD", t = document.createElement("canvas"), tc = t.getContext("2d");
+  var font = '32px "Jersey 10", "Arial Black", sans-serif';
+  tc.font = font; var tw = Math.ceil(tc.measureText(word).width) + 2, th = 30;
+  t.width = tw; t.height = th; tc.font = font; tc.textBaseline = "top"; tc.fillStyle = "#000"; tc.fillText(word, 1, 0);
+  var data = tc.getImageData(0, 0, tw, th).data, top = th, bot = 0, m = [];
+  for (var y = 0; y < th; y++){ m[y] = []; for (var x = 0; x < tw; x++){ var on = data[(y*tw + x)*4 + 3] > 120; m[y][x] = on; if (on){ top = Math.min(top, y); bot = Math.max(bot, y); } } }
+  var L = document.getElementById("logo"), W = tw + 6, H = (bot - top + 1) + 7;
+  L.width = W; L.height = H;
+  var c = L.getContext("2d");
+  function at(x, y){ y += top; return y >= 0 && y < th && x >= 0 && x < tw && m[y][x]; }
+  var h = bot - top + 1;
+  for (var pass = 0; pass < 3; pass++){
+    for (var y2 = -2; y2 < h + 3; y2++) for (var x2 = -2; x2 < tw + 3; x2++){
+      var X = x2 + 2, Y = y2 + 2;
+      if (pass === 0 && at(x2 - 2, y2 - 3)){ c.fillStyle = "#16121c"; c.fillRect(X, Y, 1, 1); }
+      if (pass === 1 && !at(x2, y2) && (at(x2-1, y2) || at(x2+1, y2) || at(x2, y2-1) || at(x2, y2+1) || at(x2-1, y2-1) || at(x2+1, y2+1) || at(x2+1, y2-1) || at(x2-1, y2+1))){ c.fillStyle = "#16121c"; c.fillRect(X, Y, 1, 1); }
+      if (pass === 2 && at(x2, y2)){
+        var f = y2 / h;
+        c.fillStyle = !at(x2, y2-1) ? "#fff4b0" : f < .45 ? "#f6c02c" : f < .75 ? "#e89a1c" : "#c06a10";
+        if (!at(x2+1, y2) && f > .2) c.fillStyle = "#a85a10";
+        c.fillRect(X, Y, 1, 1);
+      }
+    }
+  }
+}
+if (document.fonts && document.fonts.load){
+  document.fonts.load('32px "Jersey 10"').then(drawLogo, drawLogo);
+} else drawLogo();
+
+var W = 320, H = 176, R = 18, S3 = Math.sqrt(3), OX = 160, OY = 90;
+var cv = document.getElementById("realm"), ctx = cv.getContext("2d");
+var TILES = [[0,-2,"F",11],[1,-2,"M",3],[2,-2,"M",8],[-1,-1,"P",9],[0,-1,"G",6],[1,-1,"H",4],[2,-1,"M",10],
+  [-2,0,"F",5],[-1,0,"G",10],[0,0,"C",0],[1,0,"P",9],[2,0,"F",2],[-2,1,"H",8],[-1,1,"P",3],[0,1,"G",11],[1,1,"F",5],
+  [-2,2,"P",4],[-1,2,"H",6],[0,2,"G",12]];
+var IDX = {}; TILES.forEach(function(t, i){ IDX[t[0]+","+t[1]] = i; });
+function ctr(q, r){ return [OX + R*S3*(q + r/2), OY + R*1.5*r]; }
+function corner(q, r, i){ var c = ctr(q, r), a = Math.PI/180*(60*i - 30); return [Math.round(c[0] + R*Math.cos(a)), Math.round(c[1] + R*Math.sin(a))]; }
+function cround(q, r){
+  var x = q, z = r, y = -x - z, rx = Math.round(x), ry = Math.round(y), rz = Math.round(z);
+  var dx = Math.abs(rx - x), dy = Math.abs(ry - y), dz = Math.abs(rz - z);
+  if (dx > dy && dx > dz) rx = -ry - rz; else if (dy > dz) ry = -rx - rz; else rz = -rx - ry;
+  return [rx, rz];
+}
+function hexAt(x, y, rad){
+  var px = x + 0.5 - OX, py = y + 0.5 - OY;
+  var a = cround((S3/3*px - py/3)/rad, (2/3*py)/rad), k = a[0] + "," + a[1];
+  return k in IDX ? IDX[k] : -1;
+}
+function hash(x, y){
+  var n = Math.imul(x, 374761393) + Math.imul(y, 668265263);
+  n = Math.imul(n ^ (n >>> 13), 1274126177); n ^= n >>> 16;
+  return ((n >>> 0) % 1000) / 1000;
+}
+function rgb(h){ return [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]; }
+var PAL = {
+  F:["#1d5226","#246630","#2e7a38"], P:["#5aa83c","#6cbc48","#88d060"], G:["#c89430","#dcac40","#ecc85c"],
+  H:["#9a4628","#b45c32","#cc7444"], M:["#625e70","#7c788a","#9894a4"], C:["#7a6e60","#9a8e7a","#b4a890"]
+};
+function terr(k, x, y){
+  var n = hash(x, y), p = PAL[k];
+  switch (k){
+    case "F": return p[n < .35 ? 0 : n < .9 ? 1 : 2];
+    case "P": return p[n < .06 ? 0 : n > .88 ? 2 : 1];
+    case "G": return y % 3 === 0 ? p[0] : p[n > .75 ? 2 : 1];
+    case "H": return (x + 2*y) % 7 === 0 ? p[0] : p[n > .86 ? 2 : n < .1 ? 0 : 1];
+    case "M": return ((x - y) % 5 + 5) % 5 === 0 ? p[0] : p[n > .9 ? 2 : 1];
+    default: {
+      var row = Math.floor(y/3), mortar = y % 3 === 0 || (x + (row % 2)*2) % 4 === 0;
+      return mortar ? p[0] : p[n > .5 ? 2 : 1];
+    }
+  }
+}
+var SEA = ["#3a7ad0","#2860b8","#1c4c9c","#163c84"];
+
+var bg = document.createElement("canvas"); bg.width = W; bg.height = H;
+var b = bg.getContext("2d");
+var img = b.createImageData(W, H), D = img.data, id = new Int16Array(W*H);
+var x, y;
+for (y = 0; y < H; y++) for (x = 0; x < W; x++) id[y*W + x] = hexAt(x, y, R);
+var waveSpots = [];
+for (y = 0; y < H; y++) for (x = 0; x < W; x++){
+  var i = id[y*W + x], col;
+  if (i >= 0){
+    col = terr(TILES[i][2], x, y);
+    var up = y > 0 ? id[(y-1)*W + x] : -1, lf = x > 0 ? id[y*W + x-1] : -1;
+    var dn = y < H-1 ? id[(y+1)*W + x] : -1, rt = x < W-1 ? id[y*W + x+1] : -1;
+    if (dn !== i || rt !== i) col = "#2a1c14";
+    else if (up !== i || lf !== i){ var cc = rgb(col); col = "rgb(" + Math.min(255, cc[0]+48) + "," + Math.min(255, cc[1]+48) + "," + Math.min(255, cc[2]+40) + ")"; }
+  } else if (hexAt(x, y, R*1.07) >= 0){
+    col = hash(x, y) > .8 ? "#d8bc78" : "#ecd494";
+  } else if (hexAt(x, y, R*1.12) >= 0){
+    col = (x + y) % 2 ? "#e8f4ff" : SEA[0];
+  } else if (hexAt(x, y, R*1.3) >= 0) col = SEA[0];
+  else if (hexAt(x, y, R*1.55) >= 0) col = (x + y) % 2 ? SEA[0] : SEA[1];
+  else if (hexAt(x, y, R*1.9) >= 0) col = SEA[1];
+  else if (hexAt(x, y, R*2.3) >= 0) col = (x + y) % 2 ? SEA[1] : SEA[2];
+  else col = (x % 2 === 0 && y % 2 === 0) ? SEA[3] : SEA[2];
+  if (i < 0 && hexAt(x, y, R*1.25) < 0 && hash(x*3, y*7) > .9965) waveSpots.push([x, y, Math.floor(hash(x, y)*40)]);
+  var v = col.charAt(0) === "#" ? rgb(col) : col.slice(4, -1).split(",").map(Number);
+  var o = (y*W + x)*4; D[o] = v[0]; D[o+1] = v[1]; D[o+2] = v[2]; D[o+3] = 255;
+}
+b.putImageData(img, 0, 0);
+function px(c, x, y, col){ c.fillStyle = col; c.fillRect(x, y, 1, 1); }
+
+/* --- river: walk the hex edges from a mountain spring to the sea --- */
+var graph = {};
+function key(p){ return p[0] + "," + p[1]; }
+TILES.forEach(function(t){
+  for (var i = 0; i < 6; i++){
+    var a = key(corner(t[0], t[1], i)), c = key(corner(t[0], t[1], (i+1) % 6));
+    (graph[a] = graph[a] || {})[c] = 1; (graph[c] = graph[c] || {})[a] = 1;
+  }
+});
+function bfs(s, e){
+  var prev = {}, q = [s], seen = {}; seen[s] = 1;
+  while (q.length){
+    var u = q.shift(); if (u === e) break;
+    Object.keys(graph[u] || {}).forEach(function(v){ if (!seen[v]){ seen[v] = 1; prev[v] = u; q.push(v); } });
+  }
+  var path = [e]; while (path[0] !== s && prev[path[0]]) path.unshift(prev[path[0]]);
+  return path;
+}
+var way = [corner(1,-2,1), corner(0,0,5), corner(0,0,0), corner(0,0,1), corner(0,0,2), corner(-1,2,2)].map(key);
+var rpath = [way[0]];
+for (var wi = 1; wi < way.length; wi++) rpath = rpath.concat(bfs(way[wi-1], way[wi]).slice(1));
+var rpts = rpath.map(function(k){ return k.split(",").map(Number); });
+rpts.push([rpts[rpts.length-1][0], rpts[rpts.length-1][1] + 7]);
+var riverLine = [];
+for (var ri = 1; ri < rpts.length; ri++){
+  var a0 = rpts[ri-1], a1 = rpts[ri], steps = Math.max(Math.abs(a1[0]-a0[0]), Math.abs(a1[1]-a0[1]));
+  for (var s = 0; s < steps; s++) riverLine.push([Math.round(a0[0] + (a1[0]-a0[0])*s/steps), Math.round(a0[1] + (a1[1]-a0[1])*s/steps)]);
+}
+riverLine.forEach(function(p){ b.fillStyle = "#1c4c9c"; b.fillRect(p[0]-1, p[1]-1, 3, 3); });
+riverLine.forEach(function(p){ b.fillStyle = "#3c88e0"; b.fillRect(p[0], p[1]-1, 1, 3); b.fillRect(p[0]-1, p[1], 3, 1); });
+var spring = rpts[0]; b.fillStyle = "#3c88e0"; b.fillRect(spring[0]-2, spring[1]-1, 4, 3); px(b, spring[0]-1, spring[1]-1, "#bfe2ff");
+
+/* --- terrain sprites --- */
+var TP = {k:"#103a1c", e:"#5cb84c", E:"#2f8a36", t:"#5a3418"};
+var TREE = ["  kkk  "," keeEk ","keeeEEk","keeEEEk"," kEEEk ","  ktk  ","   t   "];
+var HAY = [" BBB ","ByyYB","ByYYB","BBBBB"];
+var KILN = ["  kkk  "," kOOOk ","kOOkOOk","kOkrkOk","kkkkkkk"];
+var SHEEP = [" WWWk","WWWWk"," k k "];
+var MILL = ["  r  "," rrr "," WWw "," WWw ","WWWww","WkWww","WkWww"];
+var CHIMNEYS = [];
+function peak(cx, by, h){
+  for (var k = 0; k <= h; k++){
+    var y = by - h + k, hw = Math.round(k*0.85);
+    for (var dx = -hw; dx <= hw; dx++){
+      var snow = k < Math.max(2, h*0.28) + (hash(cx+dx, y) > .6 ? 1 : 0), edge = dx === -hw || dx === hw;
+      px(b, cx+dx, y, edge ? "#2a2636" : dx < 0 ? (snow ? "#f8f8ff" : "#aeaabb") : (snow ? "#c4c4dc" : "#5a5668"));
+    }
+  }
+}
+var millHex;
+TILES.forEach(function(t){
+  var c = ctr(t[0], t[1]), cx = Math.round(c[0]), cy = Math.round(c[1]);
+  if (t[2] === "F") [[-7,-8],[0,-12],[7,-8],[-11,-1],[-3,-3],[10,0],[4,-1],[-9,6],[8,6]].forEach(function(p){ spr(b, TREE, TP, cx+p[0]-3, cy+p[1]-3); });
+  if (t[2] === "M"){ peak(cx-11, cy+3, 6); peak(cx-3, cy+2, 13); peak(cx+7, cy+3, 9); }
+  if (t[2] === "P") [[-8,-7],[3,-11],[7,-3],[-3,-2],[-10,2]].forEach(function(p){ spr(b, SHEEP, {W:"#f8f4e8", k:"#2a2430"}, cx+p[0], cy+p[1]); });
+  if (t[2] === "G"){
+    if (t[0] === 0 && t[1] === -1){ millHex = [cx, cy]; spr(b, MILL, {r:"#a83020", W:"#f0e8d8", w:"#b8a890", k:"#3a2418"}, cx+4, cy-9, "#2a1c14"); spr(b, HAY, {B:"#7a4e1c", y:"#f8dc70", Y:"#c89430"}, cx-9, cy-6); }
+    else { spr(b, HAY, {B:"#7a4e1c", y:"#f8dc70", Y:"#c89430"}, cx-8, cy-7); spr(b, HAY, {B:"#7a4e1c", y:"#f8dc70", Y:"#c89430"}, cx+4, cy-4); }
+  }
+  if (t[2] === "H"){
+    spr(b, KILN, {k:"#3c1c10", O:"#8a4a2a", r:"#f8a030"}, cx-8, cy-8);
+    spr(b, ["kkkk","krRk","kkkk"], {k:"#3c1c10", r:"#e07848", R:"#a03c20"}, cx+4, cy-7);
+    spr(b, ["kkkk","kRrk","kkkk"], {k:"#3c1c10", r:"#e07848", R:"#a03c20"}, cx+6, cy-2);
+  }
+});
+
+/* --- the castle and fountain --- */
+var CX = OX, CY = OY;
+function rect(x, y, w, h, c){ b.fillStyle = c; b.fillRect(x, y, w, h); }
+function cone(cx, top, h, half){
+  for (var k = 0; k < h; k++){
+    var hw = Math.round(k*half/(h-1));
+    for (var dx = -hw; dx <= hw; dx++) px(b, cx+dx, top+k, dx === -hw || dx === hw ? "#3a0c0c" : dx < 0 ? "#d84030" : dx === 0 ? "#b02c20" : "#7a1c14");
+  }
+}
+var ST = "#b8b0a0", SL = "#d8d2c4", SD = "#7a7264", SK = "#2a221c";
+rect(CX-12, CY-7, 25, 12, SK);
+rect(CX-11, CY-6, 23, 10, ST); rect(CX-11, CY-6, 1, 10, SL); rect(CX+11, CY-6, 1, 10, SD); rect(CX-11, CY+3, 23, 1, SD);
+for (x = CX-11; x <= CX+11; x += 2) rect(x, CY-8, 1, 2, ST);
+[CX-9, CX+9].forEach(function(tx){
+  rect(tx-3, CY-12, 7, 17, SK); rect(tx-2, CY-11, 5, 15, ST); rect(tx-2, CY-11, 1, 15, SL); rect(tx+2, CY-11, 1, 15, SD);
+  cone(tx, CY-18, 7, 3); px(b, tx, CY-7, SK); px(b, tx, CY-6, SK);
+});
+rect(CX-4, CY-14, 9, 19, SK); rect(CX-3, CY-13, 7, 17, ST); rect(CX-3, CY-13, 1, 17, SL); rect(CX+3, CY-13, 1, 17, SD);
+cone(CX, CY-21, 8, 4);
+rect(CX, CY-25, 1, 4, "#3a2418");
+px(b, CX-1, CY-9, SK); px(b, CX+1, CY-9, SK);
+rect(CX-2, CY-1, 5, 6, SK); px(b, CX-2, CY-1, ST); px(b, CX+2, CY-1, ST); rect(CX-1, CY, 3, 4, "#4a3020");
+[CX-6, CX+6].forEach(function(bx){ rect(bx, CY-5, 2, 5, "#4058d0"); px(b, bx, CY-4, "#f8d048"); px(b, bx+1, CY-4, "#f8d048"); });
+rect(CX-1, CY+5, 3, 3, "#c8bca8");
+spr(b, [" sssssss ","sbbbbbbbs"," sssssss "], {s:"#e0d8c8", b:"#58a8f0"}, CX-4, CY+9, "#3a3028");
+
+/* --- lighthouse and islet --- */
+spr(b, ["  gggg  "," gGGggg ","gGGGGgGg"], {g:"#8a8494", G:"#5a5668"}, 288, 36, "#1c1c30");
+spr(b, [" W ","WWw","rrR","WWw","rrR","WWw","rrR","WWw"], {W:"#f8f4e8", w:"#b8b4c0", r:"#d83c30", R:"#8a1c1c"}, 291, 27, "#1c1c30");
+spr(b, [" ggg ","gGGgg"], {g:"#8a8494", G:"#5a5668"}, 24, 150, "#1c1c30");
+
+/* --- players: villages, towns, roads --- */
+var PLAYERS = {
+  red:{P:"#e04434", p:"#9a2018"}, blue:{P:"#4c88f0", p:"#1c449c"}, purple:{P:"#a858e0", p:"#5c2c90"}
+};
+var VIL = ["   P   ","  PPp  "," PPPpp ","PPPPppp"," WWWWw "," WkWWw "," WkWWw "];
+function road(q, r, i, j, pl){
+  var a = corner(q, r, i), c = corner(q, r, j), n = Math.max(Math.abs(c[0]-a[0]), Math.abs(c[1]-a[1]));
+  for (var s = 2; s <= n-2; s++){
+    var xx = Math.round(a[0] + (c[0]-a[0])*s/n), yy = Math.round(a[1] + (c[1]-a[1])*s/n);
+    rect(xx-1, yy-1, 3, 3, "#1c1018"); px(b, xx, yy, PLAYERS[pl].P); px(b, xx, yy-1, PLAYERS[pl].P);
+  }
+}
+function village(pt, pl){
+  var pal = {P:PLAYERS[pl].P, p:PLAYERS[pl].p, W:"#f0e0c0", w:"#c8b090", k:"#3a2418"};
+  spr(b, VIL, pal, pt[0]-3, pt[1]-4, "#1c1018");
+  px(b, pt[0]+2, pt[1]-4, "#3a2418"); CHIMNEYS.push([pt[0]+2, pt[1]-5]);
+}
+function town(pt, pl){
+  var pal = {P:PLAYERS[pl].P, p:PLAYERS[pl].p, W:"#f0e0c0", w:"#c8b090", k:"#3a2418"};
+  spr(b, VIL, pal, pt[0]-6, pt[1]-7, "#1c1018");
+  spr(b, VIL, pal, pt[0]-2, pt[1]-4, "#1c1018");
+  px(b, pt[0]+3, pt[1]-4, "#3a2418"); CHIMNEYS.push([pt[0]+3, pt[1]-5]);
+  px(b, pt[0]-5, pt[1]-7, "#3a2418"); CHIMNEYS.push([pt[0]-5, pt[1]-8]);
+}
+road(1,0,5,0,"blue"); road(1,0,0,1,"blue"); road(1,1,5,0,"blue");
+road(-1,0,4,3,"red"); road(-2,1,5,0,"red");
+road(-1,-1,5,4,"purple"); road(-1,-1,4,3,"purple");
+village(corner(1,-1,1), "blue"); town(corner(1,1,0), "blue");
+village(corner(-1,0,4), "red"); town(corner(-2,1,0), "red"); village(corner(0,0,4), "red");
+town(corner(-1,-1,5), "purple"); village(corner(-1,-1,3), "purple");
+
+/* --- number tokens --- */
+var DG = {"0":["111","101","101","101","111"],"1":["010","110","010","010","111"],"2":["111","001","111","100","111"],
+  "3":["111","001","011","001","111"],"4":["101","101","111","001","001"],"5":["111","100","111","001","111"],
+  "6":["111","100","111","101","111"],"8":["111","101","111","101","111"],"9":["111","101","111","001","111"]};
+TILES.forEach(function(t){
+  if (!t[3]) return;
+  var c = ctr(t[0], t[1]), cx = Math.round(c[0]), cy = Math.round(c[1]) + 7;
+  for (var dy = -5; dy <= 5; dy++) for (var dx = -5; dx <= 5; dx++){
+    var d = dx*dx + dy*dy;
+    if (d <= 20) px(b, cx+dx, cy+dy, d > 12 && dy > 0 ? "#d8c49c" : "#f4e8c8");
+    else if (d <= 30) px(b, cx+dx, cy+dy, "#3c2c1c");
+  }
+  var s = String(t[3]), red = t[3] === 6 || t[3] === 8, w = s.length*4 - 1, sx = cx - Math.floor(w/2);
+  for (var n = 0; n < s.length; n++){
+    var g = DG[s[n]];
+    for (var gy = 0; gy < 5; gy++) for (var gx = 0; gx < 3; gx++) if (g[gy][gx] === "1") px(b, sx + n*4 + gx, cy - 2 + gy, red ? "#c82020" : "#3c2c1c");
+  }
+});
+
+/* --- bandits and a knight --- */
+var hc = ctr(1, -1);
+spr(b, [" hhh ","hykyh"," hhh ","hhhhh"," hhh "," h h "], {h:"#3a2a40", y:"#f8e040", k:"#120c18"}, Math.round(hc[0]) - 12, Math.round(hc[1]) + 1, "#0c0810");
+var gc = ctr(1, 0);
+spr(b, ["  P  "," ggg "," gkg ","gPPPg"," PyP "," g g "], {P:PLAYERS.blue.P, g:"#d4d8e0", k:"#1c1424", y:"#f8d048"}, Math.round(gc[0]) - 10, Math.round(gc[1]) - 6, "#120c18");
+rect(Math.round(gc[0]) - 4, Math.round(gc[1]) - 9, 1, 9, "#7a5030"); px(b, Math.round(gc[0]) - 4, Math.round(gc[1]) - 10, "#e8e8f0");
+
+/* ---------- animation ---------- */
+var BOAT = ["   W  ","   WW ","   WWW","   b  ","bbbbbbb"," BBBBB "];
+var BOATL = BOAT.map(function(r){ while (r.length < 7) r += " "; return r.split("").reverse().join(""); });
+var boatPal = {W:"#f8f4e8", b:"#a0703c", B:"#5a3418"};
+function frame(t){
+  ctx.drawImage(bg, 0, 0);
+  // river shimmer, flowing downstream
+  for (var k = 0; k < riverLine.length; k++) if (((k - Math.floor(t/3)) % 9 + 9) % 9 === 0){ var p = riverLine[k]; px(ctx, p[0], p[1], "#d8f0ff"); }
+  // waves
+  waveSpots.forEach(function(w){
+    var ph = (Math.floor(t/5) + w[2]) % 40;
+    if (ph < 7){ var off = ph < 3 ? 0 : 1; ctx.fillStyle = "#9ccaf4"; ctx.fillRect(w[0] + off, w[1], 3, 1); px(ctx, w[0] + off + 1, w[1] - 1, "#9ccaf4"); }
+  });
+  // windmill blades
+  if (millHex){
+    var hx = millHex[0] + 6, hy = millHex[1] - 7, ang = Math.floor(t/4) * Math.PI/16;
+    for (var a = 0; a < 4; a++){
+      var th = ang + a*Math.PI/2;
+      for (var l = 1; l <= 6; l++) px(ctx, Math.round(hx + Math.cos(th)*l), Math.round(hy + Math.sin(th)*l), l > 2 ? "#f4ecd8" : "#7a5030");
+    }
+    px(ctx, hx, hy, "#3a2418");
+  }
+  // fountain
+  var fh = 3 + (Math.floor(t/6) % 2);
+  for (var f = 0; f < fh; f++) px(ctx, CX, CY + 9 - f, f === fh-1 ? "#ffffff" : "#bfe2ff");
+  for (var d = 0; d < 6; d++){
+    var pp = ((t*0.8 + d*9) % 36) / 36, side = d % 2 ? 1 : -1;
+    px(ctx, CX + side*Math.round(1 + pp*3), CY + 6 + Math.round(pp*pp*4), "#9fd0ff");
+  }
+  // royal flag
+  var wv = Math.floor(t/10) % 2;
+  ctx.fillStyle = "#f8d048"; ctx.fillRect(CX+1, CY-25, 4, 2); ctx.fillStyle = "#c89820"; ctx.fillRect(CX+1 + (wv ? 3 : 2), CY-25 + (wv ? 1 : 0), 1, 1);
+  px(ctx, CX+5, CY-25 + wv, "#f8d048");
+  // chimney smoke
+  CHIMNEYS.forEach(function(c, j){
+    for (var s = 0; s < 3; s++){
+      var ph = (t*0.35 + j*13 + s*10) % 30;
+      if (ph < 22) px(ctx, c[0] + Math.round(Math.sin((ph + j)*0.3)*1.2 + ph*0.08), Math.round(c[1] - ph*0.5), ph < 8 ? "#f0f0f0" : ph < 15 ? "#b8b8c4" : "#8c8c9c");
+    }
+  });
+  // boats
+  var bA = Math.sin(t*0.004), xA = Math.round(36 + bA*22), dirA = Math.cos(t*0.004) >= 0;
+  spr(ctx, dirA ? BOAT : BOATL, boatPal, xA, 38 + (Math.floor(t/20) % 2), "#101830");
+  var bB = Math.sin(t*0.005 + 2), xB = Math.round(272 + bB*18), dirB = Math.cos(t*0.005 + 2) >= 0;
+  spr(ctx, dirB ? BOAT : BOATL, boatPal, xB, 120 + (Math.floor(t/24) % 2), "#101830");
+  // lighthouse lamp
+  if (Math.floor(t/30) % 3 !== 0){ px(ctx, 292, 26, "#fff080"); for (var lb = 1; lb < 7; lb += 2) px(ctx, 292 - 2 - lb, 26 + (lb > 3 ? 1 : 0), "#fff6b0"); }
+  // the river serpent, now and then
+  var sc = t % 900;
+  if (sc < 360){
+    var sx = Math.round(8 + sc*0.16);
+    for (var hm = 0; hm < 3; hm++){
+      var hxp = sx + hm*6, up = Math.floor((t/8 + hm*2) % 4) < 2 ? 0 : 1;
+      spr(ctx, [" ee ","eEEe"], {e:"#4cb06c", E:"#2c7040"}, hxp, 112 + up, "#0c2418");
+    }
+    spr(ctx, [" ee","eke","ee "], {e:"#4cb06c", k:"#0c0810"}, sx + 18, 110, "#0c2418");
+  }
+}
+if (reduce){ frame(120); }
+else {
+  var t = 0, last = 0;
+  (function loop(now){
+    if (now - last >= 1000/30){ last = now; t += 2; frame(t); }
+    requestAnimationFrame(loop);
+  })(0);
+}
+})();
+</script>
