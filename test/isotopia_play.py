@@ -105,7 +105,7 @@ def play(seats, label):
     app = App()
     frame(app, 3)
     shot(app, 'iso-1-title.png')
-    press(app, 'b:New game')
+    press(app, 'b:Play on this screen')
     app.seats = seats
     frame(app)
     shot(app, f'iso-2-setup-{label}.png')
@@ -147,7 +147,7 @@ def bomb_check():
     """A person drops a bomb by hand: BOMB button, pick a land, confirm, and the land becomes a crater."""
     app = App()
     frame(app, 2)
-    press(app, 'b:New game')
+    press(app, 'b:Play on this screen')
     app.seats = solo
     press(app, 'start')
     for _ in range(5000):

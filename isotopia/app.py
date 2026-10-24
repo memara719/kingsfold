@@ -8,6 +8,7 @@ import pygame
 
 import audio
 import bot
+import online
 from art import icon, die, flag, logo, professor, piece, INK
 from board import GEO, CENTER
 from font import text, width, fit, wrap, LINE
@@ -42,6 +43,7 @@ class App:
         self.title_board = BoardView()
         self.logo = logo()
         self.prof = professor()
+        online.bridge()          # in the browser this also seeds the random numbers, so every board and table code differs
         self.scene = 'title'
         self.seats = [{'name': 'Player 1', 'type': 'human'}, {'name': BOT_NAMES[1], 'type': 'bot'},
                       {'name': BOT_NAMES[2], 'type': 'bot'}, {'name': BOT_NAMES[3], 'type': 'off'}]
@@ -56,8 +58,76 @@ class App:
         self.frame_no = 0
         self.scale = 3
         self.offset = (0, 0)
+        self.net = None
+        self.tip = None
+        self.pass_to = None
+        self.targets = None
+        self.viewer = None
+        self.bridge = online.bridge()
+        self.my_name = self.bridge.load('iso_name', True)
+        self.testing = self.bridge.ok and int(self.bridge.js.testing())
         audio.init()
         self.start_demo()
+        self.arrive()
+
+    # ---------- online: arriving by invite link, or coming back after a reload ----------
+
+    def arrive(self):
+        if not self.bridge.ok:
+            return
+        code = str(self.bridge.js.hash()).lstrip('#').upper()
+        saved = self.bridge.load('iso_hosting')
+        if saved:
+            try:
+                saved = __import__('json').loads(saved)
+            except ValueError:
+                saved = None
+        if saved and (not code or code == saved['code']):
+            self.net = online.HostTable(self, self.my_name or 'Host', saved)
+            if saved['game']:
+                self.begin(Game.from_dict(saved['game']), [0])
+            else:
+                self.scene = 'lobby'
+        elif len(code) == 4 and code.isalpha():
+            self.ask_name(lambda: self.join(code))
+
+    def ask_name(self, then):
+        if self.my_name:
+            return then()
+        self.name_edit = {'kind': 'me', 'value': '', 'then': then}
+        self.scene = 'name'
+
+    def host_table(self):
+        audio.play('click')
+        self.net = online.HostTable(self, self.my_name)
+        self.scene = 'lobby'
+
+    def join(self, code):
+        self.net = online.GuestTable(self, self.my_name, code)
+        self.scene = 'lobby'
+
+    def leave_table(self, notice=None):
+        if self.net:
+            self.net.leave()
+        self.net = None
+        self.game = None
+        self.modal = None
+        self.notice = notice
+        self.scene = 'title'
+
+    def on_table_change(self):
+        if self.net and not self.net.host and self.net.info and not self.net.info['started'] and self.scene == 'game':
+            self.game = None
+            self.modal = None
+            self.scene = 'lobby'
+
+    def guest_state(self, m):
+        g = Game.from_dict(m['game'])
+        if self.game is None or self.scene != 'game':
+            self.begin(g, [m['you']])
+        else:
+            self.game = g
+            self.after_change()
 
     # ---------- the demo game behind the title ----------
 
@@ -79,10 +149,20 @@ class App:
     # ---------- starting and following a game ----------
 
     def start_game(self):
+        if self.net:
+            # online: the host starts (or restarts) the game for the whole table
+            t = self.net
+            t.started = True
+            self.begin(Game([(s['name'], s['kind'] == 'bot') for s in t.seats], random.randrange(1 << 30)), [0])
+            return
         active = [s for s in self.seats if s['type'] != 'off']
-        self.game = Game([(s['name'], s['type'] == 'bot') for s in active], random.randrange(1 << 30))
+        self.begin(Game([(s['name'], s['type'] == 'bot') for s in active], random.randrange(1 << 30)), None)
+
+    def begin(self, game, me):
+        """Show a game. me: [our seat] when playing online, None when everyone shares this screen."""
+        self.game = game
         self.colors = [(p.color, p.shade) for p in self.game.players]
-        self.humans = [p.id for p in self.game.players if not p.bot]
+        self.humans = me if me is not None else [p.id for p in self.game.players if not p.bot]
         self.viewer = self.humans[0] if self.humans else None
         self.pass_to = None
         self.last_seq = self.game.event_seq
@@ -100,6 +180,9 @@ class App:
         self.board.set_board(self.game.hexes)
         self.after_change()
 
+    def guest(self):
+        return self.net is not None and not self.net.host
+
     def human_turn(self):
         g = self.game
         return g.winner is None and not g.players[g.turn].bot
@@ -112,7 +195,9 @@ class App:
         self.board.set_board(g.hexes)
         self.events()
         # pass-and-play: hand the device over before showing the next person's cards
-        if self.human_turn() and g.turn != self.viewer:
+        if self.net:
+            pass
+        elif self.human_turn() and g.turn != self.viewer:
             if len(self.humans) > 1:
                 self.pass_to = g.turn
                 self.viewer = None
@@ -123,7 +208,11 @@ class App:
         self.update_targets()
         if g.winner is not None and (not self.modal or self.modal['kind'] != 'over'):
             self.modal = {'kind': 'over'}
+        if g.winner is None and self.modal and self.modal['kind'] == 'over':
+            self.modal = None
         self.maybe_tip()
+        if self.net and self.net.host:
+            self.net.broadcast()
 
     def events(self):
         g = self.game
@@ -163,7 +252,7 @@ class App:
                 self.banner('BOOM!')
                 self.toast(f"{g.players[e['pid']].name} dropped the bomb on the {TERRAIN_NAME[g.hexes[e['hex']]['terrain']].lower()}! " + (lost + '.' if lost else 'Nobody lived there.'))
             elif t == 'turn':
-                if not g.players[e['pid']].bot and len(self.humans) == 1:
+                if e['pid'] == self.viewer and len(self.humans) == 1:
                     audio.play('turn')
                     self.banner('Your turn!')
             elif t == 'longest':
@@ -208,6 +297,9 @@ class App:
         self.update_targets()
 
     def act(self, a):
+        if self.guest():
+            self.net.act(a)
+            return
         err = self.game.do(self.game.turn, a)
         if err:
             self.toast(err)
@@ -235,9 +327,16 @@ class App:
     # ---------- per frame ----------
 
     def update(self, now):
-        if self.scene == 'title':
+        if self.scene in ('title', 'online', 'lobby', 'setup'):
             self.step_demo(now)
-        if self.scene != 'game':
+        if self.net:
+            if self.net.host:
+                self.net.poll()
+            else:
+                self.net.poll(now)
+            if self.net.error:
+                return self.leave_table(self.net.error)
+        if self.scene != 'game' or self.guest():
             return
         g = self.game
         if g.winner is not None or now < self.wait_until or self.pass_to is not None:
@@ -245,7 +344,9 @@ class App:
         if getattr(self, 'boom_at', 0) and now >= self.boom_at:
             audio.play('boom')
             self.boom_at = 0
-        if g.players[g.turn].bot and now >= self.bot_next:
+        # bots play their seats, and stand in for friends whose connection dropped
+        stand_in = self.net is not None and self.net.away(g.turn)
+        if (g.players[g.turn].bot or stand_in) and now >= self.bot_next:
             self.bot_next = now + (300 if g.phase.startswith('setup') else 650)
             a = bot.act(g, g.turn)
             if a:
@@ -261,6 +362,35 @@ class App:
         getattr(self, 'draw_' + self.scene)(t)
         self.draw_modal()
         self.draw_tip()
+        if self.testing and self.frame_no % 3 == 0:
+            try:
+                self.publish()
+            except Exception as e:
+                import platform
+                platform.window.console.log('KF publish failed: ' + repr(e))
+
+    def publish(self):
+        """For automated browser tests: where the buttons and glowing spots are, and what the game is doing."""
+        import json
+        g = self.game
+        spots = []
+        if self.scene == 'game' and self.targets:
+            kind, ids, _ = self.targets
+            pos = VPOS if kind == 'vertex' else EPOS if kind == 'edge' else HPOS
+            spots = [[i, BOARD[0] + 3 + round(pos[i][0]) - VX, BOARD[1] + 3 + round(pos[i][1]) - VY] for i in ids]
+        st = {'scene': self.scene, 'modal': self.modal and self.modal['kind'], 'tip': self.tip, 'pass': self.pass_to,
+              'notice': self.notice, 'scale': self.scale, 'offset': list(self.offset), 'spots': spots,
+              'regions': [[r['key'], r['x'], r['y'], r['w'], r['h'], bool(r['fn'])] for r in self.ui.regions]}
+        if self.net:
+            st['code'] = self.net.code
+            st['host'] = self.net.host
+            st['seats'] = len(self.net.seats) if self.net.host else len((self.net.info or {}).get('seats', []))
+        if g is not None and self.scene == 'game':
+            st.update(phase=g.phase, turn=g.turn, viewer=self.viewer, mine=self.mine(), round=g.round, winner=g.winner,
+                      seq=g.event_seq, board=json.dumps([g.buildings, g.roads, g.cloud, g.turn, g.phase, [p.cards() for p in g.players]]),
+                      hidden=all(p.count is not None for p in g.players if p.id != self.viewer) if self.guest() else None,
+                      uranium=g.players[self.viewer].hand['uranium'] if self.viewer is not None else 0, bombs=sum(p.bombs for p in g.players))
+        self.bridge.js.publish(json.dumps(st))
 
     # ---------- title ----------
 
@@ -273,11 +403,19 @@ class App:
         s.blit(self.logo, ((SW - lw) // 2, 8))
         text(s, 'A building game for the atomic age', SW // 2, 50, C['soft'], align='center')
         mx, my, mw = 206, 74, 188
-        self.ui.window(mx, my, mw, 118)
-        self.ui.button(mx + 18, my + 12, mw - 30, 18, 'New game', lambda: self.go('setup'), align='left')
-        self.ui.button(mx + 18, my + 36, mw - 30, 18, 'How to play', lambda: self.open({'kind': 'rules'}), align='left')
-        for i, line in enumerate(wrap('Build houses and atomic towns. Collect 5 Uranium to drop a bomb. First to 8 points wins!', mw - 24)):
-            text(s, line, mx + 12, my + 64 + i * LINE, C['dim'])
+        self.ui.window(mx, my, mw, 132)
+        self.ui.button(mx + 18, my + 12, mw - 30, 18, 'Play online', lambda: self.go('online'), align='left')
+        self.ui.button(mx + 18, my + 34, mw - 30, 18, 'Play on this screen', lambda: self.go('setup'), align='left')
+        self.ui.button(mx + 18, my + 56, mw - 30, 18, 'How to play', lambda: self.open({'kind': 'rules'}), align='left')
+        for i, line in enumerate(wrap('Collect 5 Uranium to drop a bomb. First to 8 points wins!', mw - 24)):
+            text(s, line, mx + 12, my + 84 + i * LINE, C['dim'])
+        if self.notice:
+            lines = wrap(self.notice, SW - 40)
+            nh = len(lines) * LINE + 12
+            self.ui.window(10, SH - nh - 6, SW - 20, nh)
+            for i, line in enumerate(lines):
+                text(s, line, 18, SH - nh + i * LINE, C['gold'])
+            self.ui.hit(10, SH - nh - 6, SW - 20, nh, lambda: setattr(self, 'notice', None), 'notice')
         text(s, '1955', SW - 8, SH - 12, C['dim'], align='right')
 
     def go(self, scene):
@@ -287,6 +425,115 @@ class App:
     def open(self, modal):
         audio.play('click')
         self.modal = modal
+
+    # ---------- online: choose, then wait at the table ----------
+
+    def backdrop(self, t):
+        s = self.screen
+        s.fill((22, 60, 132))
+        board = self.title_board.render(self.demo, None, None, t, [(p.color, p.shade) for p in self.demo.players])
+        s.blit(board, ((SW - VW) // 2, (SH - VH) // 2), (VX, VY, VW, VH))
+        veil = pygame.Surface((SW, SH), pygame.SRCALPHA)
+        veil.fill((22, 60, 132, 150))
+        s.blit(veil, (0, 0))
+
+    def draw_online(self, t):
+        s, ui = self.screen, self.ui
+        self.backdrop(t)
+        w, h = 300, 170
+        x, y = (SW - w) // 2, (SH - h) // 2
+        ui.window(x, y, w, h)
+        text(s, 'Play online', x + 10, y + 8, C['gold'])
+        if not self.bridge.ok:
+            msg = 'Online play works in the browser version of Isotopia: memara719.github.io/kingsfold/isotopia'
+            for i, line in enumerate(wrap(msg, w - 20)):
+                text(s, line, x + 10, y + 28 + i * LINE, C['soft'])
+        else:
+            text(s, 'You are', x + 10, y + 28, C['soft'])
+            text(s, fit(self.my_name or '(no name yet)', 140), x + 56, y + 28, C['white'])
+            ui.button(x + w - 70, y + 24, 60, 15, 'Change', lambda: self.ask_name_again(), glove=False, key='myname')
+            ui.button(x + 24, y + 50, w - 48, 18, 'Host a table', lambda: self.ask_name(self.host_table), key='host')
+            ui.button(x + 24, y + 74, w - 48, 18, 'Join with a code', lambda: self.ask_name(self.enter_code), key='joincode')
+            for i, line in enumerate(wrap('Got an invite link from a friend? Just open it and you will sit at their table.', w - 20)):
+                text(s, line, x + 10, y + 102 + i * LINE, C['dim'])
+        ui.button(x + 10, y + h - 24, 50, 17, 'Back', lambda: self.go('title'), glove=False)
+
+    def ask_name_again(self):
+        audio.play('click')
+        self.name_edit = {'kind': 'me', 'value': '', 'then': lambda: self.go('online')}
+        self.scene = 'name'
+
+    def enter_code(self):
+        self.name_edit = {'kind': 'code', 'value': ''}
+        self.scene = 'name'
+
+    def draw_lobby(self, t):
+        s, ui, net = self.screen, self.ui, self.net
+        self.backdrop(t)
+        if net is None:
+            return self.go('title')
+        w, h = 380, 222
+        x, y = (SW - w) // 2, (SH - h) // 2
+        ui.window(x, y, w, h)
+        if net.host:
+            seats = [{'name': q['name'], 'kind': q['kind'], 'here': q['kind'] in ('me', 'bot') or bool(q['cid'])} for q in net.seats]
+            you, title = 0, net.seats[0]['name'] + "'s table"
+        elif net.info:
+            seats, you, title = net.info['seats'], net.info['you'], net.info['title']
+        else:
+            text(s, f'Joining table {net.code}...', x + 10, y + 8, C['gold'])
+            text(s, 'Connecting to your friend.', x + 10, y + 28, C['soft'])
+            ui.button(x + 10, y + h - 24, 56, 17, 'Leave', self.leave_table, glove=False)
+            return
+        text(s, fit(title, w - 110), x + 10, y + 8, C['gold'])
+        text(s, net.code, x + w - 12, y + 8, C['white'], align='right')
+        text(s, 'Code', x + w - 44, y + 8, C['dim'], align='right')
+        text(s, 'At the table', x + 10, y + 26, C['soft'])
+        for i in range(4):
+            ry = y + 40 + i * 15
+            if i >= len(seats):
+                text(s, '- empty seat -', x + 26, ry + 1, (90, 102, 176))
+                continue
+            q = seats[i]
+            flag(s, COLORS[i][1], COLORS[i][2], x + 12, ry)
+            name = q['name'] + (' (you)' if i == you else '')
+            text(s, fit(name, 120), x + 26, ry + 1, C['white'] if q['here'] else C['dim'])
+            tag = 'host' if q['kind'] == 'me' else 'bot' if q['kind'] == 'bot' else '' if q['here'] else 'away'
+            text(s, tag, x + 170, ry + 1, C['dim'], align='right')
+            if net.host and i > 0:
+                ui.button(x + 176, ry - 1, 12, 11, 'x', lambda i=i: net.remove(i), glove=False, key=f'rm{i}')
+        # inviting friends
+        ix, iw = x + 200, w - 212
+        text(s, 'Invite friends', ix, y + 26, C['soft'])
+        link = str(self.bridge.js.link(net.code)) if self.bridge.ok else net.code
+        for i, line in enumerate(wrap(link.replace('https://', ''), iw)[:3]):
+            text(s, line, ix, y + 40 + i * LINE, C['white'])
+        share = self.bridge.ok and int(self.bridge.js.canShare())
+        half = (iw - 4) // 2
+        ui.button(ix, y + 76, half if share else iw, 16, 'Copy link', lambda: self.copy_link(link), glove=False, key='copy')
+        if share:
+            ui.button(ix + half + 4, y + 76, half, 16, 'Share', lambda: self.bridge.js.share(link), glove=False, key='share')
+        if getattr(self, 'copied', 0) > pygame.time.get_ticks():
+            text(s, 'Copied! Paste it to your friends.', ix, y + 96, C['green'])
+        for i, line in enumerate(wrap(f'Or they choose Play online, then Join with a code, and type {net.code}.', iw)):
+            text(s, line, ix, y + 110 + i * LINE, C['dim'])
+        by = y + h - 24
+        ui.button(x + 10, by, 56, 17, 'Leave', self.leave_table, glove=False, key='leave')
+        if net.host:
+            ui.button(x + 72, by, 62, 17, '+ Bot', net.add_bot, enabled=len(net.seats) < 4, glove=False, key='addbot')
+            ui.button(x + w - 80, by, 70, 17, 'Start', self.start_game, kind='red', enabled=len(net.seats) >= 2 and net.ready, glove=False, key='start')
+            if not net.ready:
+                text(s, 'Opening your table...', x + w - 88, by + 5, C['soft'], align='right')
+            elif len(net.seats) < 2:
+                text(s, 'Waiting for friends...', x + w - 88, by + 5, C['soft'], align='right')
+        else:
+            text(s, 'The host starts the game.', x + w - 12, by + 5, C['soft'], align='right')
+
+    def copy_link(self, link):
+        audio.play('click')
+        if self.bridge.ok:
+            self.bridge.js.copy(link)
+        self.copied = pygame.time.get_ticks() + 2500
 
     # ---------- player setup ----------
 
@@ -337,19 +584,22 @@ class App:
     # ---------- name entry on an old-school letter grid ----------
 
     ROWS = ['ABCDEFGHIJKLM', 'NOPQRSTUVWXYZ', 'abcdefghijklm', 'nopqrstuvwxyz', "0123456789 -'"]
+    CODE_ROWS = ['ABCDEFGHJKLM', 'NPQRSTUVWXYZ']
 
     def draw_name(self, t):
         s = self.screen
         s.fill((16, 24, 72))
         ed = self.name_edit
-        cell, rows = 13, self.ROWS
+        kind = ed.get('kind', 'seat')
+        cell, rows = 13, self.CODE_ROWS if kind == 'code' else self.ROWS
+        title = {'seat': f"Name for player {ed.get('seat', 0) + 1}", 'me': 'Your name, so friends know you', 'code': 'Table code (4 letters)'}[kind]
         gw = len(rows[0]) * cell
         w, h = gw + 30, 60 + len(rows) * cell + 36
         x, y = (SW - w) // 2, (SH - h) // 2
         self.ui.window(x, y, w, h)
-        text(s, f"Name for player {ed['seat'] + 1}", x + 10, y + 8, C['gold'])
+        text(s, title, x + 10, y + 8, C['gold'])
         s.fill((12, 18, 64), (x + 10, y + 22, w - 20, 16))
-        text(s, ed['value'] + ('_' if (t // 12) % 2 and len(ed['value']) < 12 else ' '), x + 15, y + 26)
+        text(s, ed['value'] + ('_' if (t // 12) % 2 and len(ed['value']) < self.max_len() else ' '), x + 15, y + 26)
         gx, gy = x + (w - gw) // 2, y + 46
         for r, row in enumerate(rows):
             for i, ch in enumerate(row):
@@ -359,24 +609,39 @@ class App:
                     s.fill((80, 104, 216), (cx, cy, cell - 1, cell - 1))
                 text(s, '_' if ch == ' ' else ch, cx + 6, cy + 3, C['dim'] if ch == ' ' else C['white'], align='center')
         by = gy + len(rows) * cell + 8
-        self.ui.button(x + 10, by, 46, 16, 'Back', lambda: self.go('setup'), glove=False)
+        back = {'seat': 'setup', 'me': 'title', 'code': 'online'}[kind]
+        self.ui.button(x + 10, by, 46, 16, 'Back', lambda: self.go(back), glove=False)
         self.ui.button(x + 62, by, 40, 16, 'Del', lambda: self.type_key(None), glove=False)
-        self.ui.button(x + w - 60, by, 50, 16, 'OK', self.save_name, kind='red', enabled=bool(ed['value'].strip()), glove=False)
+        ok = bool(ed['value'].strip()) and (kind != 'code' or len(ed['value']) == 4)
+        self.ui.button(x + w - 60, by, 50, 16, 'OK', self.save_name, kind='red', enabled=ok, glove=False, key='nameok')
+
+    def max_len(self):
+        return 4 if self.name_edit.get('kind') == 'code' else 12
 
     def type_key(self, ch):
         ed = self.name_edit
         if ch is None:
             ed['value'] = ed['value'][:-1]
-        elif len(ed['value']) < 12:
-            ed['value'] += ch
+        elif len(ed['value']) < self.max_len():
+            ed['value'] += ch.upper() if ed.get('kind') == 'code' else ch
             audio.play('click')
 
     def save_name(self):
         ed = self.name_edit
-        if ed['value'].strip():
-            self.seats[ed['seat']]['name'] = ed['value'].strip()[:12]
-            self.name_edit = None
+        value = ed['value'].strip()
+        kind = ed.get('kind', 'seat')
+        if not value or (kind == 'code' and len(value) != 4):
+            return
+        self.name_edit = None
+        if kind == 'seat':
+            self.seats[ed['seat']]['name'] = value[:12]
             self.go('setup')
+        elif kind == 'me':
+            self.my_name = online.clean(value)
+            self.bridge.save('iso_name', self.my_name, True)
+            ed['then']()
+        else:
+            self.join(value.upper())
 
     # ---------- the game ----------
 
@@ -712,6 +977,8 @@ class App:
             self.maybe_tip()
 
     def quit_game(self):
+        if self.net:
+            return self.leave_table()
         self.modal = None
         self.game = None
         self.go('title')
@@ -774,7 +1041,10 @@ class App:
             text(s, fit(p.name, 120), x + 20, ry, C['gold'] if p.id == g.winner else C['white'])
             text(s, f'{g.points(p.id)} pts', x + w - 8, ry, C['white'], align='right')
         ui.button(x + 8, y + h - 22, 80, 16, 'Main menu', self.quit_game, glove=False)
-        ui.button(x + w - 98, y + h - 22, 90, 16, 'Play again', self.start_game, kind='green', glove=False, key='again')
+        if self.guest():
+            text(s, 'The host can play again.', x + w - 8, y + h - 18, C['soft'], align='right')
+        else:
+            ui.button(x + w - 98, y + h - 22, 90, 16, 'Play again', self.start_game, kind='green', glove=False, key='again')
 
     def draw_tip(self):
         if self.scene != 'game' or not self.tip or self.modal or self.pass_to is not None:
@@ -824,7 +1094,8 @@ class App:
             elif e.key == pygame.K_RETURN:
                 self.save_name()
             elif e.unicode and (e.unicode.isalnum() or e.unicode in " -'"):
-                self.type_key(e.unicode)
+                if self.name_edit.get('kind') != 'code' or e.unicode.isalpha():
+                    self.type_key(e.unicode)
             return
         if e.key == pygame.K_ESCAPE:
             if self.modal and self.modal['kind'] != 'over':

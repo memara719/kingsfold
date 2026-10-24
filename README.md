@@ -24,9 +24,10 @@ A second, smaller game in `isotopia/`, written in Python with [pygame](https://p
 - Road: Lumber + Cement. House: Lumber + Cement + Food (1 point). Atomic town: 2 Food + 2 Steel, upgrades a house (2 points, pays double). Fallout shelter: Cement + Steel, protects one building.
 - **The bomb:** with 5 Uranium, pick a land. Every building on its corners is destroyed (unless it has a shelter) and the land becomes a crater forever. Each player gets one bomb. The bank never sells Uranium, and everyone can see who is collecting it.
 - A 7 moves the radiation cloud, which blocks a land and grabs a card. Bank trades are 3 for 1. First to 8 points wins (longest road is worth 2).
-- 2 to 4 players: people share one screen (cards hide while you pass it on) and bots fill the other seats. Professor Atom gives tips during your first game.
+- **Play online:** choose *Play online*, *Host a table*, and send friends the invite link (or the 4-letter code). The host's browser runs the game and friends connect to it directly through PeerJS, so no server is needed; each player only sees their own cards. Reloading rejoins (the host too), and a bot plays for anyone whose connection drops until they're back. Online play is in the browser version only.
+- **Or share one screen:** *Play on this screen*, 2 to 4 people passing it around (cards hide while you pass), bots in the other seats. Professor Atom gives tips during your first game.
 
-Tests: `python3 test/test_isotopia.py` (rules and 200 bot games) and `python3 test/isotopia_play.py` (plays through the real screen with no window).
+Tests: `python3 test/test_isotopia.py` (rules and 200 bot games) and `python3 test/isotopia_play.py` (plays through the real screen with no window). `test/browser/isotopia-online.mjs` plays three browsers online on the pygbag build; it needs a local copy of the pygbag runtime (github.com/pygame-web/cdn) and `test/browser/peer-server.mjs`.
 
 ## Play it on your computer
 

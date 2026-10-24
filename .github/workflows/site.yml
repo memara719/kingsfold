@@ -24,6 +24,7 @@ jobs:
           python-version: '3.12'
       - run: pip install pygame-ce==2.5.8 pygbag==0.9.3
       - run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python test/test_isotopia.py
+      - run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python test/isotopia_play.py
       - run: python -m pygbag --build --title Isotopia isotopia
       - run: cp -r isotopia/build/web site/isotopia
       - name: Publish site/ to gh-pages

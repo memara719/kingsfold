@@ -52,6 +52,10 @@ class Player:
         self.hand = empty_hand()
         self.houses = self.towns = self.roads = 0
         self.bombs = 0
+        self.count = None      # set on copies sent to other players, whose cards stay hidden
+
+    def cards(self):
+        return self.count if self.count is not None else hand_size(self.hand)
 
 
 class Game:
@@ -80,6 +84,42 @@ class Game:
         self.setup_i = 0
         self.make_board()
         self.say('Welcome to Isotopia, 1955. Build the city of tomorrow!')
+
+    # ---------- sending a game over the network ----------
+
+    FIELDS = ['buildings', 'roads', 'cloud', 'phase', 'turn', 'round', 'turn_count', 'dice', 'longest', 'winner',
+              'log', 'events', 'event_seq', 'last_setup_house', 'setup_order', 'setup_i', 'hexes']
+
+    def to_dict(self, seat=None):
+        """The game as plain data. With a seat, other players' cards are hidden, except how much Uranium they hold."""
+        d = {f: getattr(self, f) for f in self.FIELDS}
+        d['players'] = []
+        for p in self.players:
+            pd = {k: getattr(p, k) for k in ('id', 'name', 'bot', 'color', 'shade', 'hand', 'houses', 'towns', 'roads', 'bombs')}
+            if seat is not None and p.id != seat:
+                pd['hand'] = {r: (p.hand[r] if r == 'uranium' else 0) for r in RES}
+                pd['count'] = hand_size(p.hand)
+            d['players'].append(pd)
+        if seat is not None:
+            d['events'] = [dict(e, stolen=(e['stolen'][0], None)) if e.get('type') == 'cloud' and e.get('stolen') and seat not in (e['pid'], e['stolen'][0]) else e for e in self.events]
+        return d
+
+    @classmethod
+    def from_dict(cls, d):
+        g = cls.__new__(cls)
+        g.rng = random.Random()
+        for f in cls.FIELDS:
+            setattr(g, f, d[f])
+        g.dice = tuple(d['dice']) if d['dice'] else None
+        g.players = []
+        for pd in d['players']:
+            p = Player.__new__(Player)
+            for k in ('id', 'name', 'bot', 'hand', 'houses', 'towns', 'roads', 'bombs'):
+                setattr(p, k, pd[k])
+            p.color, p.shade = tuple(pd['color']), tuple(pd['shade'])
+            p.count = pd.get('count')
+            g.players.append(p)
+        return g
 
     # ---------- setup ----------
 
