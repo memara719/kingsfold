@@ -3,7 +3,7 @@
 
 import { GEO, CENTER, RES } from './board.js';
 import {
-  COSTS, WORKSHOPS, QUESTS, LIMITS, canPay, handSize, legalSpots, workshopFits,
+  COSTS, WORKSHOPS, LIMITS, canPay, handSize, legalSpots, workshopFits,
   workshopCost, bankRate, roadCost, publicCrowns, canPlaceVillage,
 } from './game.js';
 
@@ -154,11 +154,6 @@ function mainAction(s, pid) {
     return { type: 'build', what: 'town', v: best(spots.towns, v => spotValue(s, v)) };
   if (spots.villages.length && p.villages < LIMITS.village && canPay(p.hand, COSTS.village))
     return { type: 'build', what: 'village', v: best(spots.villages, v => spotValue(s, v, pid)) };
-
-  for (const q of s.quests) {
-    const def = QUESTS[q.id];
-    if (def.pay && canPay(p.hand, def.pay) && handSize(p.hand) - handSize(def.pay) >= 2) return { type: 'payQuest', quest: q.id };
-  }
 
   const ws = bestWorkshop(s, pid, spots.workshops);
   if (ws && canPay(p.hand, workshopCost(s, pid, ws.kind)) && (handSize(workshopCost(s, pid, ws.kind)) === 0 || handSize(p.hand) >= 4))

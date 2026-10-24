@@ -2,12 +2,12 @@
 
 import { GEO, CENTER, RES, RES_NAME, TERRAIN_RES } from '/shared/board.js';
 import {
-  COSTS, WORKSHOPS, HOUSES, HOUSE_IDS, NEWS, QUESTS, CARD_INFO, LIMITS, WIN_CROWNS,
+  COSTS, WORKSHOPS, HOUSES, HOUSE_IDS, NEWS, CARD_INFO, LIMITS, WIN_CROWNS,
   canPay, handSize, legalSpots, workshopFits, workshopCost, bankRate, roadCost, viewFor,
 } from '/shared/game.js';
 import { Host } from '/shared/host.js';
 import { S, PAL, paint, make, icon, banner, dieFace, drawLogo, KING, KING_PAL, WORKSHOP_SPRITE, CARD_SPRITE } from './sprites.js';
-import { BoardView, W, H, VPOS, EPOS, HPOS } from './board-view.js';
+import { BoardView, VX, VY, VW, VH, VPOS, EPOS, HPOS } from './board-view.js';
 import { sfx, setMusic, setSound, audioState, unlock } from './audio.js';
 
 const $ = id => document.getElementById(id);
@@ -238,7 +238,7 @@ function onView() {
   if (view.phase !== 'main' || !mine()) { ui.mode = null; }
   if (mine() && view.phase === 'main' && view.freeRoads > 0) ui.mode = 'road';
   updateTargets();
-  renderTop(); renderPlayers(); renderQuests(); renderLog(); renderDock(); renderOffer(); renderForced();
+  renderTop(); renderPlayers(); renderLog(); renderDock(); renderOffer(); renderForced();
   if (ui.modal) renderModal();
   maybeTip();
   $('chatForm').hidden = conn.kind !== 'online';
@@ -269,7 +269,6 @@ function processEvents() {
         else if (e.from === view.you) toast(view.players[e.to].name + ' stole 1 ' + RES_NAME[e.res] + ' from you!');
         else toast(view.players[e.to].name + ' stole a card from ' + view.players[e.from].name + '.');
         break;
-      case 'quest': sfx('quest'); toast(pname(e.pid) + ' finished ' + QUESTS[e.quest].name + '! +1 crown', true); break;
       case 'news': sfx('news'); $('newsBox').classList.remove('flash'); void $('newsBox').offsetWidth; $('newsBox').classList.add('flash'); toast('NEWS: ' + NEWS[e.news].name, true); break;
       case 'turn': if (e.pid === view.you) { sfx('turn'); toast('YOUR TURN!', true); } break;
       case 'title': toast(pname(e.pid) + (e.pid === view.you ? ' now have ' : ' now has ') + (e.title === 'longest' ? 'the longest road' : 'the most knights') + ': +2 crowns!'); sfx('quest'); break;
@@ -332,7 +331,7 @@ $('modeCancel').addEventListener('click', () => { ui.mode = null; updateTargets(
 
 function boardPoint(e) {
   const r = $('board').getBoundingClientRect();
-  return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height];
+  return [VX + (e.clientX - r.left) * VW / r.width, VY + (e.clientY - r.top) * VH / r.height];
 }
 function targetAt(x, y) {
   const t = ui.targets;
@@ -363,7 +362,7 @@ $('board').addEventListener('click', e => {
 
 function landInfo(h) {
   const hx = view.hexes[h];
-  if (h === CENTER) return toast(view.bandit === CENTER ? 'The castle. The bandits are hiding in the slum by its west wall.' : 'The castle of King Aldric. It pays nothing, but roads that touch it count for the Royal Road quest.');
+  if (h === CENTER) return toast(view.bandit === CENTER ? 'The castle. The bandits are hiding in the slum by its west wall.' : 'The castle of King Aldric. It pays nothing. The bandits hide in the slum by its west wall when they are sent home.');
   const owners = [];
   GEO.hexes[h].vertices.forEach(v => { const b = view.buildings[v]; if (b) owners.push(pname(b.owner) + (b.kind === 'town' ? ' (town)' : '')); });
   let text = TERRAIN_NAME[hx.terrain] + ' on ' + hx.number + ': pays ' + RES_NAME[TERRAIN_RES[hx.terrain]];
@@ -444,31 +443,6 @@ function renderPlayers() {
     cr.title = 'Crowns (' + WIN_CROWNS + ' to win)';
     li.appendChild(cr);
     list.appendChild(li);
-  });
-}
-
-function renderQuests() {
-  const box = $('quests');
-  box.replaceChildren();
-  view.quests.forEach(inst => {
-    const q = QUESTS[inst.id];
-    const d = el('div', 'quest');
-    d.appendChild(el('b', '', q.name));
-    d.appendChild(el('span', '', q.text));
-    const row = el('div', 'row');
-    const reward = el('span', 'prog'); reward.appendChild(icon('crown')); reward.lastChild.style.width = '14px'; reward.appendChild(document.createTextNode(' +1 crown'));
-    row.appendChild(reward);
-    if (q.pay) {
-      const b = el('button', 'btn small', 'PAY'); b.type = 'button';
-      b.disabled = !(mine() && view.phase === 'main' && canPay(myP().hand, q.pay));
-      b.addEventListener('click', () => conn.act({ type: 'payQuest', quest: inst.id }));
-      row.appendChild(b);
-    } else {
-      const have = Math.max(0, q.metric(view, me()) - inst.base[me()]);
-      row.appendChild(el('span', 'prog', 'You: ' + Math.min(have, q.target) + '/' + q.target));
-    }
-    d.appendChild(row);
-    box.appendChild(d);
   });
 }
 
@@ -831,7 +805,7 @@ function renderModal() {
       'Villages are worth 1 crown, towns 2. First to ' + WIN_CROWNS + ' crowns wins.',
       'Longest road (5+) and most knights (3+) are worth 2 crowns each.',
       'Roll a 7 and the bandits come out. Anyone with more than 7 cards drops half.',
-      'Quests on the board are worth 1 crown. The King\'s news changes each round.',
+      'The King\'s news changes each round and lasts one round.',
       'Tap any land to see what it pays and who lives there.'].forEach(t => ol.appendChild(el('li', '', t)));
     body.appendChild(ol);
     const list = el('div', 'menu-list');
@@ -861,7 +835,6 @@ const TIPS = {
   discard: 'You held more than 7 cards when a 7 was rolled. Pick which half to drop.',
   picks: 'You have a free card! Tap the card you want in your hand.',
   offer: 'Someone wants to trade with you. Tap ACCEPT if it looks like a good deal.',
-  quest: 'Quests on the board are worth a crown each. Some only need cards paid to the castle.',
 };
 function maybeTip() {
   if (!store.get('kf_tips', true) || !view || view.phase === 'over') { if (ui.tipKey) hideTip(); return; }
@@ -876,7 +849,7 @@ function maybeTip() {
     else if (view.phase === 'setupRoad') key = 'setupRoad';
     else if (view.phase === 'roll') key = 'roll';
     else if (view.phase === 'robber') key = 'robber';
-    else if (view.phase === 'main') key = !seen.includes('main') ? 'main' : view.turnCount > view.players.length * 2 ? (!seen.includes('trade') ? 'trade' : 'quest') : null;
+    else if (view.phase === 'main') key = !seen.includes('main') ? 'main' : view.turnCount > view.players.length * 2 ? (!seen.includes('trade') ? 'trade' : null) : null;
   }
   if (!key || seen.includes(key)) { if (ui.tipKey && ui.tipKey !== key) hideTip(); return; }
   if (ui.tipKey === key) return;
@@ -914,26 +887,15 @@ $('soundBtn').addEventListener('click', () => { setSound(!audioState().sound); r
 renderSoundButtons();
 
 function fitBoard() {
-  const frame = $('boardFrame'), area = frame.parentElement, cv = $('board');
+  const area = $('boardFrame').parentElement, cv = $('board');
   const wide = window.matchMedia('(min-width: 901px)').matches;
   const aw = area.clientWidth - 12;
-  if (wide) {
-    let s = Math.min(aw / W, (area.clientHeight - 12) / H);
-    if (s >= 2) s = Math.floor(s * 2) / 2;
-    s = Math.max(1, s);
-    frame.style.width = frame.style.height = '';
-    cv.style.marginLeft = '';
-    cv.style.width = Math.floor(W * s) + 'px';
-    cv.style.height = Math.floor(H * s) + 'px';
-    return;
-  }
-  // narrow screens: crop the open sea at the sides so the island fills the width
-  const view = 196, s = Math.min(aw / view, 3);
-  frame.style.width = Math.floor(view * s) + 'px';
-  frame.style.height = Math.floor(H * s) + 'px';
-  cv.style.width = Math.floor(W * s) + 'px';
-  cv.style.height = Math.floor(H * s) + 'px';
-  cv.style.marginLeft = -Math.floor((W - view) / 2 * s) + 'px';
+  const ah = wide ? area.clientHeight - 12 : window.innerHeight * 0.62;
+  let s = Math.min(aw / VW, ah / VH);
+  if (s >= 2) s = Math.floor(s * 4) / 4;
+  s = Math.max(1, s);
+  cv.style.width = Math.floor(VW * s) + 'px';
+  cv.style.height = Math.floor(VH * s) + 'px';
 }
 window.addEventListener('resize', fitBoard);
 new ResizeObserver(() => { if (!$('game').hidden) fitBoard(); }).observe($('game'));
@@ -954,4 +916,4 @@ requestAnimationFrame(loop);
 show('title');
 
 // read-only handle for automated browser tests
-window.kingsfold = { get view() { return view; }, get ui() { return ui; }, get room() { return room; }, get host() { return conn && conn.host; }, VPOS, EPOS, HPOS, W, H };
+window.kingsfold = { get view() { return view; }, get ui() { return ui; }, get room() { return room; }, get host() { return conn && conn.host; }, VPOS, EPOS, HPOS, VX, VY, W: VW, H: VH };

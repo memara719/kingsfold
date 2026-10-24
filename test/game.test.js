@@ -81,7 +81,6 @@ test('second village pays starting cards', () => {
   const s = afterSetup();
   assert.ok(s.players.every(p => handSize(p.hand) >= 1 && handSize(p.hand) <= 3));
   assert.equal(s.phase, 'roll');
-  assert.equal(s.quests.length, 3);
   assert.ok(s.news);
 });
 

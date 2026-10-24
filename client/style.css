@@ -117,8 +117,8 @@ input { font: inherit; font-size: 18px; border: 3px solid var(--ink); background
 
 .table {
   display: grid; min-height: 0; gap: 12px;
-  grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: minmax(0, 1fr) auto;
-  grid-template-areas: "board side" "dock side";
+  grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "board dock" "board side";
   padding: 4px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
 }
 .board-area { grid-area: board; display: grid; place-items: center; min-height: 0; min-width: 0; }
@@ -126,7 +126,7 @@ input { font: inherit; font-size: 18px; border: 3px solid var(--ink); background
 #board { display: block; touch-action: manipulation; cursor: default; }
 #board.aim { cursor: pointer; }
 .side { grid-area: side; display: grid; gap: 12px; align-content: start; min-height: 0; overflow: auto; }
-.dock { grid-area: dock; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "dice hand" "actions actions"; gap: 10px 14px;
+.dock { grid-area: dock; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "dice" "hand" "actions"; gap: 10px; align-self: start;
   background: var(--paper); border: 3px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); padding: 12px; }
 
 /* panels */
@@ -145,14 +145,9 @@ input { font: inherit; font-size: 18px; border: 3px solid var(--ink); background
 .players .tag { font-family: var(--f-head); font-size: 14px; background: var(--ink); color: #fff; padding: 0 4px; margin-left: 4px; vertical-align: 2px; }
 .players .away { color: var(--red); font-size: 12px; }
 
-.quests { display: grid; gap: 8px; }
-.quest { background: #fffbe8; border: 2px solid var(--ink); padding: 6px 8px; display: grid; gap: 2px; font-size: 13px; line-height: 1.35; position: relative; }
-.quest b { font-family: var(--f-head); font-weight: 400; font-size: 18px; color: var(--red-dark); }
-.quest .row { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
-.quest .prog { font-size: 12px; color: var(--ink-soft); }
 
 .feed { min-height: 160px; }
-.log { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; font-size: 13px; line-height: 1.4; display: grid; gap: 3px; align-content: start; }
+.log { list-style: none; margin: 0; padding: 0; max-height: 150px; overflow: auto; font-size: 13px; line-height: 1.4; display: grid; gap: 3px; align-content: start; }
 .log li { border-bottom: 1px dotted #cfc8b6; padding-bottom: 2px; }
 .log li.chat b { font-weight: 400; font-family: var(--f-head); font-size: 16px; }
 .chat { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
@@ -160,7 +155,7 @@ input { font: inherit; font-size: 18px; border: 3px solid var(--ink); background
 .emotes { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* dock */
-.dice-box { grid-area: dice; display: grid; gap: 8px; justify-items: center; align-content: center; }
+.dice-box { grid-area: dice; display: flex; gap: 12px; align-items: center; }
 .dice { display: flex; gap: 8px; }
 .dice canvas { width: 40px; }
 .dice.rolling canvas { animation: shake .1s steps(2) infinite; }
@@ -168,8 +163,8 @@ input { font: inherit; font-size: 18px; border: 3px solid var(--ink); background
 .hand-box { grid-area: hand; display: grid; gap: 8px; align-content: center; min-width: 0; }
 .pick-note { font-family: var(--f-head); font-size: 20px; background: var(--gold); border: 2px solid var(--ink); padding: 2px 8px; justify-self: start; animation: flash 1s steps(2) infinite; }
 .hand { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
-.res-card { border: 3px solid var(--ink); background: #fff; display: grid; justify-items: center; align-content: center; gap: 2px; padding: 6px 2px 4px; position: relative; min-height: 70px; }
-.res-card canvas { width: 34px; }
+.res-card { border: 3px solid var(--ink); background: #fff; display: grid; justify-items: center; align-content: center; gap: 2px; padding: 6px 2px 4px; position: relative; min-height: 64px; }
+.res-card canvas { width: 30px; }
 .res-card b { font-family: var(--f-head); font-weight: 400; font-size: 30px; line-height: .9; }
 .res-card span { font-size: 11px; line-height: 1; color: var(--ink-soft); }
 .res-card.zero { background: var(--paper-2); }
@@ -183,13 +178,13 @@ button.res-card { cursor: pointer; background: var(--gold); }
 .kcard canvas { width: 16px; }
 .kcard b { font-family: var(--f-head); font-weight: 400; font-size: 18px; }
 .actions { grid-area: actions; display: flex; flex-wrap: wrap; gap: 8px; }
-.act { display: grid; gap: 3px; justify-items: center; padding: 6px 10px 6px; min-width: 92px; }
+.act { display: grid; gap: 3px; justify-items: center; padding: 6px 6px; flex: 1 1 calc(33% - 8px); min-width: 0; }
 .act .lbl { font-size: 20px; }
 .act .cost { display: flex; gap: 2px; align-items: center; flex-wrap: wrap; justify-content: center; }
 .act .cost canvas { width: 14px; }
 .act .cost canvas.miss { opacity: .3; }
 .act .cost .free { font-size: 14px; color: var(--green-dark); }
-.act.end { margin-left: auto; }
+.act.end { flex-basis: 100%; }
 .act.on { background: #fff; outline: 3px solid var(--red); outline-offset: -6px; }
 
 /* board overlays */
@@ -248,21 +243,20 @@ button.res-card { cursor: pointer; background: var(--gold); }
   .news { grid-column: 1 / -1; grid-row: 2; }
   .table { grid-template-columns: minmax(0, 1fr); grid-template-areas: "board" "dock" "side"; }
   .side { overflow: visible; }
-  .act { min-width: 0; flex: 1 1 calc(25% - 8px); padding: 6px 4px; }
+  .act { flex: 1 1 calc(25% - 8px); padding: 6px 4px; }
   .act .lbl { font-size: 18px; }
-  .act.end { margin-left: 0; }
+  .act.end { flex-basis: calc(25% - 8px); }
 }
 @media (max-width: 520px) {
   body { font-size: 15px; }
   .howto { grid-template-columns: 1fr; }
   .howto li { grid-template-columns: 40px auto 1fr; justify-items: start; text-align: left; align-items: center; gap: 10px; }
   .house-pick { grid-template-columns: repeat(2, 1fr); }
-  .dock { grid-template-columns: 1fr; grid-template-areas: "dice" "hand" "actions"; }
-  .dice-box { grid-template-columns: auto auto; justify-content: start; gap: 14px; }
+
   .res-card { min-height: 60px; }
   .res-card canvas { width: 26px; }
   .res-card b { font-size: 24px; }
-  .act { flex: 1 1 calc(33% - 8px); }
+  .act, .act.end { flex: 1 1 calc(33% - 8px); }
   .turn b { font-size: 20px; }
   .code-box > b { font-size: 48px; }
   .tip canvas { width: 44px; }

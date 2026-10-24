@@ -32,7 +32,7 @@ Render sets the `PORT` variable on its own. The free tier sleeps after about 15 
 - **Rolling:** every land showing the rolled number pays the villages next to it (towns get 2).
 - **Building:** road (Wood, Brick), village (Wood, Brick, Wool, Grain), town (2 Grain, 3 Iron), King's card (Wool, Grain, Iron).
 - **Workshops:** one per village or town, 2 cards each. Bakery, Hunter's Lodge and Blacksmith add 1 extra Grain, Wood or Iron from the lands they touch. A Fishing Hut (river or coast) gives you a free card when a roll pays you nothing.
-- **Crowns:** village 1, town 2, finished quest 1, longest road (5+) 2, most knights (3+) 2, secret crown card 1. First to 8 on their own turn wins.
+- **Crowns:** village 1, town 2, longest road (5+) 2, most knights (3+) 2, secret crown card 1. First to 8 on their own turn wins.
 - **A 7:** the bandits leave the slum. Anyone holding more than 7 cards drops half. The roller moves the bandits to a land that then pays nothing, and steals a card from someone living there.
 - **Houses:** each player picks one, with one small power, such as a free workshop or 3-for-1 bank trades.
 - **The King's news:** one event each round, like a harvest festival or a dragon over the mountains.

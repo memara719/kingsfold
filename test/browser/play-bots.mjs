@@ -25,7 +25,7 @@ async function clickTarget() {
     const id = t.ids[Math.floor(Math.random() * t.ids.length)];
     const p = t.kind === 'vertex' ? k.VPOS[id] : t.kind === 'edge' ? k.EPOS[id] : k.HPOS[id];
     const r = document.getElementById('board').getBoundingClientRect();
-    return [r.left + (p[0] + 0.5) * r.width / k.W, r.top + (p[1] + 0.5) * r.height / k.H];
+    return [r.left + (p[0] - k.VX + 0.5) * r.width / k.W, r.top + (p[1] - k.VY + 0.5) * r.height / k.H];
   });
   if (!pos) return false;
   await page.mouse.click(pos[0], pos[1]);

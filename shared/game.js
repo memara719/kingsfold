@@ -49,22 +49,6 @@ export const CARD_INFO = {
 };
 const DECK = [].concat(Array(14).fill('knight'), Array(3).fill('builder'), Array(3).fill('harvest'), Array(5).fill('crown'));
 
-const owns = (s, pid, pred) => s.buildings.reduce((n, b, v) => n + (b && b.owner === pid && pred(b, v) ? 1 : 0), 0);
-export const QUESTS = {
-  feed: { name: 'FEED THE KING', text: 'Pay 3 Grain to the castle.', pay: { grain: 3 } },
-  cloaks: { name: 'WARM CLOAKS', text: 'Pay 3 Wool to the castle.', pay: { wool: 3 } },
-  walls: { name: 'MEND THE WALLS', text: 'Pay 2 Brick and 1 Iron to the castle.', pay: { brick: 2, iron: 1 } },
-  royalroad: { name: 'ROYAL ROAD', text: 'Own a road that touches the castle.', target: 1,
-    metric: (s, p) => GEO.edges.some(e => e.capital && s.roads[e.id] === p) ? 1 : 0 },
-  builder: { name: 'MASTER BUILDER', text: 'Own 2 workshops.', target: 2, metric: (s, p) => owns(s, p, b => !!b.workshop) },
-  knights: { name: "KNIGHT'S HONOR", text: 'Play 2 Knights.', target: 2, counter: true, metric: (s, p) => s.players[p].knights },
-  river: { name: 'RIVERSIDE', text: 'Own 2 places on the river.', target: 2, metric: (s, p) => owns(s, p, (b, v) => GEO.vertices[v].river) },
-  towns: { name: 'TWO TOWERS', text: 'Own 2 towns.', target: 2, metric: (s, p) => s.players[p].towns },
-  roads: { name: 'TRAVELER', text: 'Build 3 more roads.', target: 3, counter: true, metric: (s, p) => s.players[p].roads },
-  trader: { name: 'MERCHANT', text: 'Trade with other players 2 times.', target: 2, counter: true, metric: (s, p) => s.players[p].trades },
-  coast: { name: 'SEAFARER', text: 'Own 3 places on the coast.', target: 3, metric: (s, p) => owns(s, p, (b, v) => GEO.vertices[v].coast) },
-};
-
 /* ---------- helpers ---------- */
 
 function rnd(s) {
@@ -133,13 +117,13 @@ export function createGame({ players, seed }) {
     players: players.map((p, i) => ({
       id: i, name: String(p.name || 'Player ' + (i + 1)).slice(0, 16), house: p.house, color: HOUSES[p.house].color,
       bot: !!p.bot, hand: emptyHand(), cards: [], knights: 0, picks: 0, freeWorkshopUsed: false,
-      questCrowns: 0, trades: 0, roads: 0, villages: 0, towns: 0,
+      trades: 0, roads: 0, villages: 0, towns: 0,
     })),
     phase: 'setupVillage', turn: 0, turnCount: 0, round: 0,
     setup: null, dice: null, discards: {}, robberReturn: 'main', stealTargets: [],
     freeRoads: 0, cardPlayed: false, offer: null, offerSeq: 0,
     longest: null, army: null, winner: null,
-    news: null, newsDeck: [], quests: [], questDeck: [], deck: [],
+    news: null, newsDeck: [], deck: [],
     undo: [], log: [], events: [], eventSeq: 0,
   };
   const houses = new Set();
@@ -175,8 +159,6 @@ function makeBoard(s) {
 function startPlay(s) {
   s.turn = 0; s.round = 1; s.turnCount = 1;
   s.phase = 'roll';
-  s.questDeck = shuffle(s, Object.keys(QUESTS));
-  fillQuests(s);
   drawNews(s);
   log(s, 'Everyone has settled. ' + name(s, 0) + ' goes first.');
 }
@@ -231,7 +213,7 @@ export function workshopFits(kind, v) {
 
 export function publicCrowns(s, pid) {
   const p = s.players[pid];
-  return p.villages + 2 * p.towns + (s.longest === pid ? 2 : 0) + (s.army === pid ? 2 : 0) + p.questCrowns;
+  return p.villages + 2 * p.towns + (s.longest === pid ? 2 : 0) + (s.army === pid ? 2 : 0);
 }
 export function totalCrowns(s, pid) {
   return publicCrowns(s, pid) + s.players[pid].cards.filter(c => c.kind === 'crown').length;
@@ -280,45 +262,7 @@ function updateArmy(s) {
   if (s.army !== cur) { log(s, name(s, s.army) + ' has the most knights.'); event(s, { type: 'title', title: 'army', pid: s.army }); }
 }
 
-/* ---------- quests & news ---------- */
-
-function fillQuests(s) {
-  let guard = 0;
-  while (s.quests.length < 3 && guard++ < 40) {
-    if (!s.questDeck.length) {
-      const active = new Set(s.quests.map(q => q.id));
-      s.questDeck = shuffle(s, Object.keys(QUESTS).filter(id => !active.has(id)));
-      if (!s.questDeck.length) return;
-    }
-    const id = s.questDeck.pop();
-    const q = QUESTS[id];
-    if (q.metric && !q.counter && guard < 30 && s.players.some(p => q.metric(s, p.id) >= q.target)) continue;
-    s.quests.push({ id, base: s.players.map(p => q.counter ? q.metric(s, p.id) : 0) });
-  }
-}
-
-function awardQuest(s, pid, idx) {
-  const inst = s.quests[idx];
-  s.quests.splice(idx, 1);
-  s.players[pid].questCrowns++;
-  s.undo = [];
-  log(s, name(s, pid) + ' finished the quest ' + QUESTS[inst.id].name + ' and earned a crown!');
-  event(s, { type: 'quest', pid, quest: inst.id });
-  fillQuests(s);
-}
-
-function checkQuests(s) {
-  if (s.phase === 'setupVillage' || s.phase === 'setupRoad' || s.phase === 'over') return;
-  const n = s.players.length;
-  for (let i = 0; i < s.quests.length; i++) {
-    const inst = s.quests[i], q = QUESTS[inst.id];
-    if (!q.metric) continue;
-    for (let k = 0; k < n; k++) {
-      const pid = (s.turn + k) % n;
-      if (q.metric(s, pid) - inst.base[pid] >= q.target) { awardQuest(s, pid, i); i = -1; break; }
-    }
-  }
-}
+/* ---------- news ---------- */
 
 function drawNews(s) {
   if (!s.newsDeck.length) s.newsDeck = shuffle(s, Object.keys(NEWS));
@@ -659,16 +603,6 @@ const ACTIONS = {
     if (!o || o.id !== a.id || o.from === pid) return 'That offer is gone.';
     if (!o.declined.includes(pid)) o.declined.push(pid);
   },
-  payQuest(s, pid, a) {
-    const err = inMain(s, pid);
-    if (err) return err;
-    const idx = s.quests.findIndex(q => q.id === a.quest);
-    if (idx < 0 || !QUESTS[a.quest].pay) return 'That quest is not on the board.';
-    const p = s.players[pid], cost = QUESTS[a.quest].pay;
-    if (!canPay(p.hand, cost)) return 'That quest needs ' + costText(cost) + '.';
-    pay(p.hand, cost);
-    awardQuest(s, pid, idx);
-  },
   endTurn(s, pid) {
     const err = inMain(s, pid);
     if (err) return err;
@@ -683,7 +617,6 @@ export function apply(s, pid, a) {
   const err = ACTIONS[a.type](s, pid, a);
   if (err) return err;
   updateLongest(s);
-  checkQuests(s);
   checkWin(s);
   return null;
 }
@@ -699,7 +632,7 @@ export function pendingPlayers(s) {
 export function viewFor(s, pid) {
   const v = JSON.parse(JSON.stringify(s));
   delete v.rng; delete v.seed;
-  v.deck = s.deck.length; v.newsDeck = s.newsDeck.length; v.questDeck = s.questDeck.length; v.undo = s.undo.length;
+  v.deck = s.deck.length; v.newsDeck = s.newsDeck.length; v.undo = s.undo.length;
   v.players.forEach(p => {
     p.handCount = handSize(p.hand);
     p.cardCount = p.cards.length;

@@ -6,6 +6,8 @@ import { S, spr, INK, PAL } from './sprites.js';
 
 export const W = 288;
 export const H = 184;
+// The part of the world shown on screen: the island plus a band of sea. Open sea is cropped away.
+export const VX = 50, VY = 10, VW = 188, VH = 168;
 const R = 18, S3 = Math.sqrt(3), OX = 144, OY = 92;
 
 const TERRAIN = {
@@ -51,7 +53,7 @@ const rect = (c, x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h)
 export class BoardView {
   constructor(canvas) {
     this.cv = canvas;
-    canvas.width = W; canvas.height = H;
+    canvas.width = VW; canvas.height = VH;
     this.ctx = canvas.getContext('2d');
     this.bg = document.createElement('canvas');
     this.bg.width = W; this.bg.height = H;
@@ -114,9 +116,9 @@ export class BoardView {
     hexes.forEach((h, i) => decorate(b, h.terrain, HPOS[i][0], HPOS[i][1], this, i));
     drawCastle(b, OX, OY);
     // lighthouse and islets
-    spr(b, ['  gggg  ', ' gGGggg ', 'gGGGGgGg'], { g: '#8a8494', G: '#5a5668' }, 258, 36, '#1c1c30');
-    spr(b, [' W ', 'WWw', 'rrR', 'WWw', 'rrR', 'WWw', 'rrR', 'WWw'], { W: '#f8f4e8', w: '#b8b4c0', r: '#d83c30', R: '#8a1c1c' }, 261, 27, '#1c1c30');
-    spr(b, [' ggg ', 'gGGgg'], { g: '#8a8494', G: '#5a5668' }, 18, 160, '#1c1c30');
+    spr(b, ['  gggg  ', ' gGGggg ', 'gGGGGgGg'], { g: '#8a8494', G: '#5a5668' }, 213, 27, '#1c1c30');
+    spr(b, [' W ', 'WWw', 'rrR', 'WWw', 'rrR', 'WWw', 'rrR', 'WWw'], { W: '#f8f4e8', w: '#b8b4c0', r: '#d83c30', R: '#8a1c1c' }, 216, 18, '#1c1c30');
+    spr(b, [' ggg ', 'gGGgg'], { g: '#8a8494', G: '#5a5668' }, 224, 168, '#1c1c30');
     hexes.forEach((h, i) => { if (h.number) token(b, HPOS[i][0], HPOS[i][1] + 7, h.number); });
   }
 
@@ -131,6 +133,7 @@ export class BoardView {
 
   render(view, ui, t) {
     const c = this.ctx;
+    c.setTransform(1, 0, 0, 1, -VX, -VY);
     c.drawImage(this.bg, 0, 0);
     this.ambient(c, t);
     if (view) this.pieces(c, view, t);
@@ -166,14 +169,14 @@ export class BoardView {
     const boat = ['   W  ', '   WW ', '   WWW', '   b  ', 'bbbbbbb', ' BBBBB '];
     const flip = boat.map(r => r.padEnd(7).split('').reverse().join(''));
     const bp = { W: '#f8f4e8', b: '#a0703c', B: '#5a3418' };
-    spr(c, Math.cos(t * 0.004) >= 0 ? boat : flip, bp, Math.round(28 + Math.sin(t * 0.004) * 18), 40 + (Math.floor(t / 20) % 2), '#101830');
-    spr(c, Math.cos(t * 0.005 + 2) >= 0 ? boat : flip, bp, Math.round(250 + Math.sin(t * 0.005 + 2) * 16), 124 + (Math.floor(t / 24) % 2), '#101830');
-    if (Math.floor(t / 30) % 3 !== 0) { px(c, 262, 26, '#fff080'); for (let lb = 1; lb < 7; lb += 2) px(c, 260 - lb, 26 + (lb > 3 ? 1 : 0), '#fff6b0'); }
+    spr(c, Math.cos(t * 0.004) >= 0 ? boat : flip, bp, Math.round(70 + Math.sin(t * 0.004) * 13), 24 + (Math.floor(t / 20) % 2), '#101830');
+    spr(c, Math.cos(t * 0.005 + 2) >= 0 ? boat : flip, bp, Math.round(212 + Math.sin(t * 0.005 + 2) * 13), 152 + (Math.floor(t / 24) % 2), '#101830');
+    if (Math.floor(t / 30) % 3 !== 0) { px(c, 217, 17, '#fff080'); for (let lb = 1; lb < 7; lb += 2) px(c, 215 - lb, 17 + (lb > 3 ? 1 : 0), '#fff6b0'); }
     const sc = t % 900;
     if (sc < 300) {
-      const sx = Math.round(6 + sc * 0.14);
-      for (let hm = 0; hm < 3; hm++) spr(c, [' ee ', 'eEEe'], { e: '#4cb06c', E: '#2c7040' }, sx + hm * 6, 116 + (Math.floor((t / 8 + hm * 2) % 4) < 2 ? 0 : 1), '#0c2418');
-      spr(c, [' ee', 'eke', 'ee '], { e: '#4cb06c', k: '#0c0810' }, sx + 18, 114, '#0c2418');
+      const sx = Math.round(52 + sc * 0.07);
+      for (let hm = 0; hm < 3; hm++) spr(c, [' ee ', 'eEEe'], { e: '#4cb06c', E: '#2c7040' }, sx + hm * 6, 164 + (Math.floor((t / 8 + hm * 2) % 4) < 2 ? 0 : 1), '#0c2418');
+      spr(c, [' ee', 'eke', 'ee '], { e: '#4cb06c', k: '#0c0810' }, sx + 18, 162, '#0c2418');
     }
   }
 
