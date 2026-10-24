@@ -18,11 +18,12 @@ from ui import UI, C
 from view import BoardView, VX, VY, VW, VH, VPOS, EPOS, HPOS
 
 SW, SH = 400, 240
-BOARD = (3, 3, 194, 174)
-HAND = (3, 180, 194, 57)
-STATUS = (200, 3, 197, 45)
-PLAYERS = (200, 51, 197, 74)
-ACTIONS = (200, 128, 197, 109)
+# the map gets the whole left side; everything else stacks on the right
+BOARD = (3, 3, 206, 234)
+STATUS = (212, 3, 185, 45)
+PLAYERS = (212, 50, 185, 58)
+HAND = (212, 110, 185, 46)
+ACTIONS = (212, 158, 185, 79)
 BOT_NAMES = ['Dr. Bloom', 'Prof. Pike', 'Mrs. Volt', 'Mr. Ray']
 TIPS = {
     'setup_house': 'Welcome to Isotopia! Pick a glowing spot for your first house. Lands with 6 and 8 pay out most often.',
@@ -60,6 +61,7 @@ class App:
         self.offset = (0, 0)
         self.net = None
         self.tip = None
+        self.hint = None
         self.pass_to = None
         self.targets = None
         self.viewer = None
@@ -398,11 +400,11 @@ class App:
         s = self.screen
         s.fill((22, 60, 132))
         board = self.title_board.render(self.demo, None, None, t, [(p.color, p.shade) for p in self.demo.players])
-        s.blit(board, (6, 64), (VX, VY, VW, VH))
+        s.blit(board, (6, 58), (VX, 34, VW, 182))
         lw = self.logo.get_width()
-        s.blit(self.logo, ((SW - lw) // 2, 8))
-        text(s, 'A building game for the atomic age', SW // 2, 50, C['soft'], align='center')
-        mx, my, mw = 206, 74, 188
+        s.blit(self.logo, ((SW - lw) // 2, 4))
+        text(s, 'A building game for the atomic age', SW // 2, 44, C['soft'], align='center')
+        mx, my, mw = 212, 74, 182
         self.ui.window(mx, my, mw, 132)
         self.ui.button(mx + 18, my + 12, mw - 30, 18, 'Play online', lambda: self.go('online'), align='left')
         self.ui.button(mx + 18, my + 34, mw - 30, 18, 'Play on this screen', lambda: self.go('setup'), align='left')
@@ -648,11 +650,20 @@ class App:
     def draw_game(self, t):
         s = self.screen
         s.fill((12, 16, 54))
+        self.hint = None
         self.draw_board(t)
         self.draw_hand()
         self.draw_status()
         self.draw_players()
         self.draw_actions()
+        if self.hint and self.pass_to is None:
+            # a little label under the pointer, for the resource cards
+            tw = width(self.hint) + 10
+            tx = min(SW - tw - 2, max(2, self.ui.mx - tw // 2))
+            ty = HAND[1] - 14
+            s.fill(INK, (tx, ty, tw, 13))
+            s.fill(C['parch'], (tx + 1, ty + 1, tw - 2, 11))
+            text(s, self.hint, tx + 5, ty + 3, C['parch_ink'], shadow=None)
         if self.pass_to is not None:
             self.draw_pass()
 
@@ -696,13 +707,12 @@ class App:
         s, ui, g = self.screen, self.ui, self.game
         x, y, w, h = PLAYERS
         ui.window(x, y, w, h)
-        text(s, 'pts', x + w - 8, y + 5, C['dim'], align='right')
         for i, p in enumerate(g.players):
-            ry = y + 17 + i * 13
+            ry = y + 7 + i * 12
             if p.id == g.turn and g.winner is None:
-                s.blit(ui.glove, (x + 3 + (ui.t // 8) % 2, ry))
-            flag(s, p.color, p.shade, x + 16, ry - 1)
-            text(s, fit(p.name, 66), x + 28, ry, C['gold'] if p.id == self.viewer else C['white'])
+                s.blit(ui.glove, (x + 2 + (ui.t // 8) % 2, ry))
+            flag(s, p.color, p.shade, x + 15, ry - 1)
+            text(s, fit(p.name, 54), x + 26, ry, C['gold'] if p.id == self.viewer else C['white'])
             rx = x + w - 8
             rx -= text(s, str(g.points(p.id)), rx, ry, C['white'], align='right') + 22
             if g.longest == p.id:
@@ -801,7 +811,7 @@ class App:
         p = g.players[self.viewer] if self.viewer is not None else None
         now = pygame.time.get_ticks()
         for i, res in enumerate(RES):
-            cx, cy, cw, ch = x + 4 + i * 38, y + 4, 34, h - 8
+            cx, cy, cw, ch = x + 4 + i * 36, y + 4, 33, h - 8
             n = p.hand[res] if p else None
             bump = self.bumps.get(res, 0) > now - 500 and self.bumps.get(res, 0) <= now
             s.fill(INK, (cx, cy, cw, ch))
@@ -815,11 +825,11 @@ class App:
             if not n:
                 ic = ic.copy()
                 ic.set_alpha(110)
-            s.blit(ic, (cx + (cw - ic.get_width()) // 2, cy + 3 + (8 - ic.get_height() // 2) - (2 if bump else 0)))
+            s.blit(ic, (cx + (cw - ic.get_width()) // 2, cy + 2 + (8 - ic.get_height() // 2) - (2 if bump else 0)))
             label = '?' if n is None else str(n)
-            text(s, label, cx + cw // 2, cy + 20, C['parch_ink'] if n else (122, 112, 92), shadow=None, align='center', scale=2)
-            name = RES_NAME[res] if res != 'uranium' or n is None else f'{n}/{BOMB_URANIUM}'
-            text(s, fit(name, cw - 2), cx + cw // 2, cy + 38, (122, 90, 48) if n else (133, 122, 100), shadow=None, align='center')
+            text(s, label, cx + cw // 2, cy + 19, C['parch_ink'] if n else (122, 112, 92), shadow=None, align='center', scale=2)
+            if ui.hit(cx, cy, cw, ch, None, 'card' + res):
+                self.hint = RES_NAME[res] + (f': {n}/{BOMB_URANIUM} for a bomb' if res == 'uranium' and n is not None else '')
 
     def draw_actions(self):
         s, ui, g = self.screen, self.ui, self.game
@@ -832,15 +842,16 @@ class App:
         rolling = pygame.time.get_ticks() < self.roll_until
         faces = (random.randint(1, 6), random.randint(1, 6)) if rolling else g.dice or (1, 1)
         for k, f in enumerate(faces):
-            d = pygame.transform.scale(die(f), (18, 18))
+            d = pygame.transform.scale(die(f), (17, 17))
             if not (g.dice or rolling):
                 d.set_alpha(110)
-            s.blit(d, (x0 + k * 21, y0 + (random.randint(0, 1) if rolling else 0)))
-        ui.button(x0 + 46, y0, iw - 46, 18, 'ROLL', lambda: self.act({'type': 'roll'}), kind='red', enabled=mine and g.phase == 'roll', key='roll')
+            s.blit(d, (x0 + k * 19, y0 + (random.randint(0, 1) if rolling else 0)))
+        ui.button(x0 + 38, y0, 62, 18, 'ROLL', lambda: self.act({'type': 'roll'}), kind='red', enabled=mine and g.phase == 'roll', key='roll')
+        ui.button(x0 + 104, y0, iw - 104, 18, 'End turn', lambda: (self.set_mode(None), self.act({'type': 'end_turn'})), kind='red', enabled=main, key='end')
 
         sp = g.spots(g.turn) if main else {'roads': [], 'houses': [], 'towns': [], 'shelters': [], 'bomb': []}
         hand = p.hand if main else (g.players[self.viewer].hand if self.viewer is not None else None)
-        bw, bh, gap = (iw - 4) // 2, 16, 4
+        bw, bh, gap = (iw - 8) // 3, 22, 4
         bomb_ready = main and p.hand['uranium'] >= BOMB_URANIUM and p.bombs < BOMBS_EACH
         items = [
             ('Road', COSTS['road'], main and can_pay(p.hand, COSTS['road']) and bool(sp['roads']) and p.roads < LIMITS['road'], 'road'),
@@ -851,12 +862,16 @@ class App:
             ('BOMB', COSTS['bomb'], bomb_ready, 'bomb'),
         ]
         for i, (label, cost, ok, key) in enumerate(items):
-            bx2, by2 = x0 + (i % 2) * (bw + gap), y0 + 22 + (i // 2) * (bh + 3)
+            bx2, by2 = x0 + (i % 3) * (bw + gap), y0 + 21 + (i // 3) * (bh + 3)
             fn = (lambda key=key: self.open({'kind': 'trade', 'give': None, 'get': None})) if key == 'trade' else (lambda key=key: (audio.play('click'), self.set_mode(None if self.mode == key else key)))
-            kind = 'red' if key == 'bomb' else 'blue'
-            ui.button(bx2, by2, bw, bh, label, fn, kind=kind, enabled=ok, selected=self.mode == key, align='left', key='act' + key,
-                      content=(lambda bx, byy, pr, cost=cost: self.cost_row(cost, hand, bx + bw - 5 - self.cost_width(cost), byy + 4 + pr)) if cost else None)
-        ui.button(x0, y0 + 22 + 3 * (bh + 3), iw, bh, 'End turn', lambda: (self.set_mode(None), self.act({'type': 'end_turn'})), kind='red', enabled=main, key='end')
+            sel = self.mode == key
+
+            def content(bx, byy, pr, cost=cost, label=label, ok=ok, sel=sel):
+                col = (58, 36, 8) if sel else C['white'] if ok else (108, 120, 184)
+                text(s, label, bx + bw // 2, byy + 3 + pr, col, shadow=None if sel or not ok else (16, 16, 48), align='center')
+                if cost:
+                    self.cost_row(cost, hand, bx + (bw - self.cost_width(cost)) // 2, byy + 12 + pr)
+            ui.button(bx2, by2, bw, bh, '', fn, kind='red' if key == 'bomb' else 'blue', enabled=ok, selected=sel, key='act' + key, glove=False, content=content)
 
     def cost_width(self, cost):
         if cost.get('uranium', 0) >= 3:

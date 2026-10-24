@@ -7,9 +7,10 @@ from board import GEO, CENTER
 from rules import TERRAIN_RES
 from art import sprite, piece, icon, atom, TREE, TREE_PAL, INK, S, PAL
 
-W, H = 288, 184
-R, S3, OX, OY = 18, math.sqrt(3), 144, 92
-VX, VY, VW, VH = 50, 10, 188, 168
+W, H = 320, 260
+R, S3, OX, OY = 22, math.sqrt(3), 160, 130
+VX, VY, VW, VH = 60, 16, 200, 228
+K = R / 18          # decorations were placed for 18-pixel hexes; spread them to fit
 
 TERRAIN = {
     'forest': [(29, 82, 38), (36, 102, 48), (46, 122, 56)],
@@ -178,16 +179,16 @@ class BoardView:
             self.decorate(b, kind, cx, cy, i)
         for i, h in enumerate(hexes):
             if h['number'] and not h['crater']:
-                self.token(b, HPOS[i][0], HPOS[i][1] + 7, h['number'])
+                self.token(b, HPOS[i][0], HPOS[i][1] + 9, h['number'])
 
     def decorate(self, b, kind, cx, cy, i):
         if kind == 'forest':
             for dx, dy in [(-7, -8), (0, -12), (7, -8), (-11, -1), (-3, -3), (10, 0), (4, -1), (-9, 6), (8, 6)]:
-                b.blit(sprite(TREE, TREE_PAL, None), (cx + dx - 3, cy + dy - 3))
+                b.blit(sprite(TREE, TREE_PAL, None), (cx + round(dx * K) - 3, cy + round(dy * K) - 3))
         elif kind == 'quarry':
             blk = {'q': (200, 192, 180), 'Q': (150, 142, 130)}
             for dx, dy in [(-10, -6), (-4, -6), (-7, -10), (5, -4)]:
-                b.blit(sprite(['qqqqQ', 'qqqqQ', 'QQQQQ'], blk), (cx + dx, cy + dy))
+                b.blit(sprite(['qqqqQ', 'qqqqQ', 'QQQQQ'], blk), (cx + round(dx * K), cy + round(dy * K)))
             # a little crane
             pygame.draw.line(b, (230, 170, 40), (cx + 9, cy - 1), (cx + 9, cy - 13))
             pygame.draw.line(b, (230, 170, 40), (cx + 9, cy - 13), (cx + 1, cy - 13))
@@ -283,9 +284,9 @@ class BoardView:
         boat = ['   W  ', '   WW ', '   WWW', '   b  ', 'bbbbbbb', ' BBBBB ']
         flip = [r.ljust(7)[::-1] for r in boat]
         bp = {'W': (248, 244, 232), 'b': (160, 112, 60), 'B': (90, 52, 24)}
-        s.blit(sprite(boat if math.cos(t * 0.004) >= 0 else flip, bp), (round(70 + math.sin(t * 0.004) * 13), 24 + (t // 20) % 2))
+        s.blit(sprite(boat if math.cos(t * 0.004) >= 0 else flip, bp), (round(VX + 18 + math.sin(t * 0.004) * 12), VY + 12 + (t // 20) % 2))
         sub = ['    yy    ', ' gggggggg ', 'gggggggggg', ' GGGGGGGG ']
-        s.blit(sprite(sub, {'g': (232, 200, 64), 'G': (180, 140, 40), 'y': (200, 200, 210)}), (round(212 + math.sin(t * 0.005 + 2) * 12), 154 + (t // 24) % 2))
+        s.blit(sprite(sub, {'g': (232, 200, 64), 'G': (180, 140, 40), 'y': (200, 200, 210)}), (round(VX + VW - 36 + math.sin(t * 0.005 + 2) * 10), VY + VH - 16 + (t // 24) % 2))
 
     def pieces(self, s, g, t, colors):
         for e, owner in enumerate(g.roads):
@@ -306,7 +307,7 @@ class BoardView:
             for dy in range(-5, 6):
                 for dx in range(-5, 6):
                     if dx * dx + dy * dy <= 20 and (dx + dy) % 2 == 0:
-                        s.set_at((hx + dx, hy + 7 + dy), (40, 60, 20))
+                        s.set_at((hx + dx, hy + 9 + dy), (40, 60, 20))
         for v, b in enumerate(g.buildings):
             if not b:
                 continue
