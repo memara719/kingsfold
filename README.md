@@ -14,6 +14,20 @@ There are three ways to play together:
 - **The claude.ai page.** `npm run build` makes `dist/kingsfold.html`, a single page that runs as a claude.ai artifact. Friends who can open the artifact (shared with them as contributor or editor) see each other's tables. The host's browser runs the game and every move is replayed in the other browsers, so no server is needed. If the host closes their tab mid-game, the next player takes over.
 - **Your own server.** The Node server in `server/` holds the game for everyone. See below.
 
+## Isotopia
+
+A second, smaller game in `isotopia/`, written in Python with [pygame](https://pyga.me): an island in 1955 racing to build the city of tomorrow.
+
+**Play it:** https://memara719.github.io/kingsfold/isotopia/ (the first load takes a few seconds while Python starts in the browser). Or on your computer: `pip install pygame-ce`, then `python isotopia/main.py`.
+
+- Forests give Lumber, quarries Cement, farms Food and steel mills Steel. Two rare mines give **Uranium**.
+- Road: Lumber + Cement. House: Lumber + Cement + Food (1 point). Atomic town: 2 Food + 2 Steel, upgrades a house (2 points, pays double). Fallout shelter: Cement + Steel, protects one building.
+- **The bomb:** with 5 Uranium, pick a land. Every building on its corners is destroyed (unless it has a shelter) and the land becomes a crater forever. Each player gets one bomb. The bank never sells Uranium, and everyone can see who is collecting it.
+- A 7 moves the radiation cloud, which blocks a land and grabs a card. Bank trades are 3 for 1. First to 8 points wins (longest road is worth 2).
+- 2 to 4 players: people share one screen (cards hide while you pass it on) and bots fill the other seats. Professor Atom gives tips during your first game.
+
+Tests: `python3 test/test_isotopia.py` (rules and 200 bot games) and `python3 test/isotopia_play.py` (plays through the real screen with no window).
+
 ## Play it on your computer
 
 You need [Node.js](https://nodejs.org) 20 or newer.

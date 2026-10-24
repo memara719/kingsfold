@@ -18,6 +18,14 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      # Isotopia: a pygame game, packaged for the browser with pygbag, served at /isotopia/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pygame-ce==2.5.8 pygbag==0.9.3
+      - run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python test/test_isotopia.py
+      - run: python -m pygbag --build --title Isotopia isotopia
+      - run: cp -r isotopia/build/web site/isotopia
       - name: Publish site/ to gh-pages
         run: |
           cd site

@@ -2,3 +2,5 @@ node_modules/
 .DS_Store
 dist/
 site/
+isotopia/build/
+__pycache__/
