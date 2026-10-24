@@ -7,9 +7,12 @@ import { botAction } from './bot.js';
 export const TIMERS = { setupVillage: 30000, setupRoad: 30000, roll: 30000, main: 90000, discard: 30000, robber: 30000, steal: 20000 };
 
 export class Host {
-  constructor({ players, seed, onChange, botDelay = 700, timers = true }) {
-    this.state = createGame({ players, seed });
+  // Pass players + seed to start a new game, or state to take over a game already running.
+  // onAction hears every move that changed the game, in order, so it can be replayed elsewhere.
+  constructor({ players, seed, state, onChange, onAction, botDelay = 700, timers = true }) {
+    this.state = state || createGame({ players, seed });
     this.onChange = onChange || (() => {});
+    this.onAction = onAction || (() => {});
     this.botDelay = botDelay;
     this.timers = timers;
     this.away = new Set();        // seats whose player is disconnected
@@ -23,8 +26,14 @@ export class Host {
 
   act(pid, action) {
     if (this.stopped) return 'The game has ended.';
-    const err = apply(this.state, pid, action);
+    const err = this.apply(pid, action);
     if (!err) this.refresh();
+    return err;
+  }
+
+  apply(pid, action) {
+    const err = apply(this.state, pid, action);
+    if (!err) this.onAction(pid, action);
     return err;
   }
 
@@ -81,12 +90,12 @@ export class Host {
     let action = botAction(s, pid);
     if (s.players[pid].bot === false && s.phase === 'main' && s.turn === pid && action && action.type !== 'pick') action = { type: 'endTurn' };
     if (!action) return this.schedule();
-    const err = apply(s, pid, action);
+    const err = this.apply(pid, action);
     if (err) {
       // never let a confused bot stall the table
       const fallback = s.phase === 'main' && s.turn === pid ? { type: 'endTurn' }
         : s.offer && s.offer.from !== pid ? { type: 'declineOffer', id: s.offer.id } : null;
-      if (!fallback || apply(s, pid, fallback)) { this.stop(); throw new Error('Bot stuck: ' + err + ' ' + JSON.stringify(action)); }
+      if (!fallback || this.apply(pid, fallback)) { this.stop(); throw new Error('Bot stuck: ' + err + ' ' + JSON.stringify(action)); }
     }
     this.refresh();
   }
@@ -98,7 +107,7 @@ export class Host {
     for (const pid of pendingPlayers(s)) {
       let action = s.phase === 'main' ? { type: 'endTurn' } : botAction(s, pid);
       if (s.players[pid].picks > 0 && s.phase !== 'main') action = botAction(s, pid);
-      if (action) apply(s, pid, action);
+      if (action) this.apply(pid, action);
     }
     this.phaseKey = '';
     this.refresh();

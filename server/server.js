@@ -135,6 +135,14 @@ function handle(ws, msg) {
       return broadcastRoom(r);
     }
   }
+  if (msg.t === 'list') {
+    const tables = [];
+    for (const r of rooms.values()) {
+      const host = r.seats.find(s => s.token === r.hostToken);
+      if (!r.host && host && host.ws && r.seats.length < MAX_SEATS) tables.push({ code: r.code, title: host.name + "'s table", n: r.seats.length, started: false });
+    }
+    return send(ws, { t: 'tables', tables: tables.slice(0, 8) });
+  }
   if (!room) return send(ws, { t: 'error', msg: 'Join a room first.' });
   room.lastActive = Date.now();
   const seat = seatOf(room, ws);

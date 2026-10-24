@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node server/server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "build": "node tools/build-single.mjs dist/kingsfold.html"
   },
   "engines": {
     "node": ">=20"

@@ -6,7 +6,8 @@ import path from 'node:path';
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const order = [
   ['board', 'shared/board.js'], ['game', 'shared/game.js'], ['bot', 'shared/bot.js'], ['host', 'shared/host.js'],
-  ['sprites', 'client/sprites.js'], ['board-view', 'client/board-view.js'], ['audio', 'client/audio.js'], ['main', 'client/main.js'],
+  ['font', 'client/font.js'], ['net', 'client/net.js'],
+  ['sprites', 'client/sprites.js'], ['ui', 'client/ui.js'], ['board-view', 'client/board-view.js'], ['audio', 'client/audio.js'], ['main', 'client/main.js'],
 ];
 const modName = spec => path.basename(spec, '.js');
 
@@ -25,7 +26,7 @@ function transform(name, src) {
   return `__m[${JSON.stringify(name)}] = (() => {\n${src}\nreturn { ${exported.join(', ')} };\n})();\n`;
 }
 
-const js = 'window.KF_OFFLINE = true;\n(() => {\nconst __m = {};\n' + order.map(([n, f]) => transform(n, fs.readFileSync(path.join(root, f), 'utf8'))).join('\n') + '})();\n';
+const js = 'window.KF_SINGLE = true;\n(() => {\nconst __m = {};\n' + order.map(([n, f]) => transform(n, fs.readFileSync(path.join(root, f), 'utf8'))).join('\n') + '})();\n';
 for (const [mod, list] of Object.entries(importsOf))
   for (const [from, n] of list)
     if (!exportsOf[from] || !exportsOf[from].includes(n)) throw new Error(`${mod} imports ${n} from ${from}, which does not export it.`);

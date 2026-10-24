@@ -2,7 +2,14 @@
 
 Build a village. Grow a kingdom. First to 8 crowns wins.
 
-Kingsfold is a pixel-art trading and building game for 2 to 6 players, played in the browser. One friend makes a room, shares the 4-letter code or link, and everyone plays together online. You can also play alone against bots.
+Kingsfold is a pixel-art trading and building game for 2 to 6 players, played in the browser. It looks and plays like a 16-bit console game: the whole screen is drawn in pixels with a hand-made font, and it fits a computer screen sideways or a phone held upright.
+
+One friend hosts a table, the others pick it from the list of open tables, and everyone plays together online. You can also play alone against bots.
+
+There are two ways to play together:
+
+- **The claude.ai page.** `npm run build` makes `dist/kingsfold.html`, a single page that runs as a claude.ai artifact. Friends who can open the artifact (shared with them as contributor or editor) see each other's tables. The host's browser runs the game and every move is replayed in the other browsers, so no server is needed. If the host closes their tab mid-game, the next player takes over.
+- **Your own server.** The Node server in `server/` holds the game for everyone. See below.
 
 ## Play it on your computer
 
@@ -48,7 +55,11 @@ The game itself teaches all this: only legal moves glow, buttons show their pric
 | `shared/bot.js` | Bots, also used when a turn timer runs out |
 | `shared/host.js` | Runs one game: bots, turn timers, players who drop out |
 | `server/server.js` | Serves the files and runs rooms over WebSockets |
-| `client/` | The browser game: pixel board renderer, sprites, chiptune sound and UI |
+| `client/main.js` | The screens: title, tables, lobby and the game, all drawn on one canvas |
+| `client/ui.js`, `client/font.js` | RPG-style windows, buttons and the hand-drawn pixel font |
+| `client/net.js` | Talking to a table: the Node server, the claude.ai room, or local bots |
+| `client/board-view.js`, `client/sprites.js`, `client/audio.js` | Pixel map, sprites and chiptune sound |
+| `tools/build-single.mjs` | Bundles everything into one HTML page for claude.ai |
 | `test/` | Rule tests (`npm test`) and browser play-throughs in `test/browser/` |
 
 The server holds the real game state. Each player only receives their own hand, so nobody can peek by inspecting the page.
@@ -59,4 +70,8 @@ The server holds the real game state. Each player only receives their own hand, 
 npm test
 ```
 
-This plays 300 full bot games plus checks on individual rules. The browser play-throughs in `test/browser/` need Playwright and a running server (`URL=http://localhost:8080/ node test/browser/play-bots.mjs`).
+This plays 300 full bot games plus checks on individual rules. The browser play-throughs in `test/browser/` need Playwright:
+
+- `play-bots.mjs`: a whole game against bots through the screen (`URL=http://localhost:8080/`).
+- `play-online.mjs`: two players at one server table, with a reload mid-game.
+- `play-room.mjs`: three tabs at one table on the one-file page, using `mock-room.js` in place of claude.ai's room. It checks that every screen stays in step, that a reload rejoins, and that another player takes over when the host leaves.
